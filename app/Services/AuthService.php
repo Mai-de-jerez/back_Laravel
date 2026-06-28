@@ -25,24 +25,30 @@ class AuthService
     {
         $rutaFoto = $foto
             ? $this->fileUploadService->subirFoto($foto)
-            : FileUploadService::DEFAULT_FOTO;
+            : $this->fileUploadService->getFotoDefault();
 
-        $usuario = User::create([
-            'nombre'    => $datos['nombre'],
-            'apellidos' => $datos['apellidos'],
-            'email'     => $datos['email'],
-            'password'  => Hash::make($datos['password']),
-            'telefono'  => $datos['telefono'] ?? null,
-            'foto'      => $rutaFoto,
-            'rol'       => RolUsuario::PACIENTE,
-        ]);
+        try {
+            $usuario = User::create([
+                'nombre'    => $datos['nombre'],
+                'apellidos' => $datos['apellidos'],
+                'email'     => $datos['email'],
+                'password'  => Hash::make($datos['password']),
+                'telefono'  => $datos['telefono'] ?? null,
+                'foto'      => $rutaFoto,
+                'rol'       => RolUsuario::PACIENTE,
+            ]);
+        } catch (\Exception $e) {
+            $this->fileUploadService->eliminarFoto($rutaFoto);
+            Log::error('Error al registrar usuario: ' . $e->getMessage());
+            throw $e;
+        }
 
         $token = JWTAuth::fromUser($usuario);
 
         return [
-            'mensaje' => 'Usuario registrado correctamente',
-            'token'   => $token,
-            'usuario' => $usuario,
+            'mensaje'  => 'Usuario registrado correctamente',
+            'token'    => $token,
+            'usuario'  => $usuario,
             'foto_url' => $this->fileUploadService->obtenerUrl($rutaFoto),
         ];
     }

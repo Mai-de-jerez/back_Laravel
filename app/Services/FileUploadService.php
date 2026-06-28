@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Exceptions\FileUploadException;
+use App\Exceptions\Files\FileUploadException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
