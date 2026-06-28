@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\AuthService;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;           
+use Illuminate\Http\JsonResponse;  
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
@@ -13,10 +14,10 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $request->validate([
-            'nombre'    => 'required|string|max:100',
-            'apellidos' => 'required|string|max:150',
+            'nombre'    => 'required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
+            'apellidos' => 'required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
             'email'     => 'required|email|unique:usuarios,email',
-            'password'  => 'required|string|min:8|confirmed',
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
             'telefono'  => 'nullable|string|max:20',
             'foto' => 'nullable|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
@@ -50,16 +51,25 @@ class AuthController extends Controller
         return response()->json(['mensaje' => 'Sesión cerrada correctamente']);
     }
 
-
     public function recuperarPassword(Request $request): JsonResponse
     {
+        // Validamos que el email sea obligatorio y tenga formato de email pero 
+        // no validamos que exista en la base de datos para no dar pistas a un atacante.
         $request->validate([
-            'email' => 'required|email|exists:usuarios,email',
+            'email' => 'required|email',
         ]);
 
-        $resultado = $this->authService->recuperarPassword($request->email);
+        try {
+            $resultado = $this->authService->recuperarPassword($request->email);
+            return response()->json($resultado);
 
-        return response()->json($resultado);
+        } catch (\App\Exceptions\Auth\EmailNotFoundException $e) {
+            // Si salta la excepción de que no existe, la cazamos y MENTIMOS.
+            // Devolvemos exactamente el mismo JSON con un código 200 para despistar.
+            return response()->json([
+                'mensaje' => 'Enlace enviado a tu email'
+            ], 200);
+        }
     }
 
 
@@ -67,7 +77,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'token'    => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
 
         $this->authService->restablecerPassword($request->all());

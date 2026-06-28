@@ -96,7 +96,7 @@ class AuthService
 
         $token = JWTAuth::claims(['type' => 'password_reset'])->fromUser($user);
 
-        $resetUrl = config('app.frontend_url') . '/reset-password?token=' . $token;
+        $resetUrl = config('app.frontend_url') . '/auth/restablecer-password?token=' . $token;
 
         Mail::send([], [], function ($message) use ($email, $resetUrl) {
             $message->to($email)
@@ -108,7 +108,7 @@ class AuthService
 
         return [
             'mensaje' => 'Enlace enviado a tu email',
-            'token'   => $token, // temporal para pruebas
+            //'token'   => $token, // temporal para pruebas
         ];
     }
 
