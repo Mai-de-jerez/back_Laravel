@@ -42,9 +42,9 @@ class Cita extends Model
      * La cita pertenece a un paciente 
      */
     public function paciente(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'id_paciente');
-    }
+        {
+            return $this->belongsTo(Paciente::class, 'id_paciente');
+        }
 
     /**
      * La cita pertenece a un médico

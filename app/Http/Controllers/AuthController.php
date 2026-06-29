@@ -6,6 +6,7 @@ use App\Services\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;  
 use Illuminate\Validation\Rules\Password;
+use App\Exceptions\Files\FileUploadException;
 
 class AuthController extends Controller
 {
@@ -20,14 +21,26 @@ class AuthController extends Controller
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
             'telefono'  => 'nullable|string|max:20',
             'foto' => 'nullable|mimes:jpeg,png,jpg,webp|max:2048',
+            'numero_tarjeta' => 'required|string|max:16', 
+            'compania'       => 'required|string|min:3|max:100',
         ]);
 
-        $resultado = $this->authService->register(
-            $request->except('foto'),
-            $request->file('foto')
-        );
+        try {
+            $resultado = $this->authService->register(
+                $request->except('foto'),
+                $request->file('foto')
+            );
 
-        return response()->json($resultado, 201);
+            return response()->json($resultado, 201);
+            
+        } catch (FileUploadException $e) {  
+            return response()->json([
+                'mensaje' => 'Error al subir la foto',
+                'errores' => [
+                    'foto' => [$e->getMessage()]
+                ]
+            ], 422);
+        }
     }
 
 

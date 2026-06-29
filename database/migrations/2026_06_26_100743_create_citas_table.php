@@ -12,7 +12,7 @@ return new class extends Migration
         Schema::create('citas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('id_paciente')
-                  ->constrained('usuarios')
+                  ->constrained('pacientes')
                   ->onDelete('cascade');
             $table->foreignId('id_medico')
                   ->constrained('medicos')
