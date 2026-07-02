@@ -83,10 +83,11 @@ class FileUploadService
         Log::info('Foto eliminada exitosamente', ['ruta' => $ruta]);
     }
 
-    public function obtenerUrl(string $ruta): string
+    public function obtenerUrl(?string $ruta): string
     {
+        // Si la ruta viene vacía o nula, le asignamos la de por defecto
         if (empty($ruta)) {
-            return $this->obtenerUrl($this->getFotoDefault());
+            $ruta = $this->getFotoDefault();
         }
 
         return Storage::disk('public')->url($ruta);

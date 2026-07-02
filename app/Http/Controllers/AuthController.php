@@ -6,7 +6,6 @@ use App\Services\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;  
 use Illuminate\Validation\Rules\Password;
-use App\Exceptions\Files\FileUploadException;
 
 class AuthController extends Controller
 {
@@ -15,32 +14,23 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $request->validate([
-            'nombre'    => 'required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
-            'apellidos' => 'required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
-            'email'     => 'required|email|unique:usuarios,email',
-            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
-            'telefono'  => 'nullable|string|max:20',
-            'foto' => 'nullable|mimes:jpeg,png,jpg,webp|max:2048',
-            'numero_tarjeta' => 'required|string|max:16', 
+            'nombre'         => 'required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
+            'apellidos'      => 'required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
+            'email'          => 'required|email|unique:usuarios,email',
+            'password'       => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
+            'telefono'       => 'nullable|string|max:20',
+            'foto'           => 'nullable|file', 
+            'numero_tarjeta' => 'required|digits:16',
             'compania'       => 'required|string|min:3|max:100',
         ]);
 
-        try {
-            $resultado = $this->authService->register(
-                $request->except('foto'),
-                $request->file('foto')
-            );
+        // Las excepciones de subida se manejan solas en bootstrap/app.php
+        $resultado = $this->authService->register(
+            $request->except('foto'),
+            $request->file('foto')
+        );
 
-            return response()->json($resultado, 201);
-            
-        } catch (FileUploadException $e) {  
-            return response()->json([
-                'mensaje' => 'Error al subir la foto',
-                'errores' => [
-                    'foto' => [$e->getMessage()]
-                ]
-            ], 422);
-        }
+        return response()->json($resultado, 201);
     }
 
 
@@ -64,25 +54,17 @@ class AuthController extends Controller
         return response()->json(['mensaje' => 'Sesión cerrada correctamente']);
     }
 
+
     public function recuperarPassword(Request $request): JsonResponse
     {
-        // Validamos que el email sea obligatorio y tenga formato de email pero 
-        // no validamos que exista en la base de datos para no dar pistas a un atacante.
         $request->validate([
             'email' => 'required|email',
         ]);
 
-        try {
-            $resultado = $this->authService->recuperarPassword($request->email);
-            return response()->json($resultado);
-
-        } catch (\App\Exceptions\Auth\EmailNotFoundException $e) {
-            // Si salta la excepción de que no existe, la cazamos y MENTIMOS.
-            // Devolvemos exactamente el mismo JSON con un código 200 para despistar.
-            return response()->json([
-                'mensaje' => 'Enlace enviado a tu email'
-            ], 200);
-        }
+        // Si el email no existe, EmailNotFoundException se encarga de mentir con un 200 en bootstrap/app.php
+        $resultado = $this->authService->recuperarPassword($request->email);
+        
+        return response()->json($resultado);
     }
 
 

@@ -22,8 +22,7 @@ use App\Mail\PasswordResetMail;
 class AuthService
 {
     public function __construct(
-        private FileUploadService $fileUploadService,
-        private UserService $userService 
+        private FileUploadService $fileUploadService
     ) {}
 
     public function register(array $datos, $foto = null): array
@@ -75,18 +74,9 @@ class AuthService
         ];
     }
 
+
     public function login(array $datos): array
     {
-        $user = User::porEmail($datos['email'])->first();
-        
-        if (!$user) {
-            throw new InvalidCredentialsException();
-        }
-
-        if (!$user->estaActivo()) {
-            throw new InactiveUserException('Tu cuenta está desactivada. Contacta al administrador.');
-        }
-
         $token = JWTAuth::attempt([
             'email'    => $datos['email'],
             'password' => $datos['password'],
@@ -98,6 +88,11 @@ class AuthService
 
         $usuario = JWTAuth::user();
 
+        if (!$usuario->estaActivo()) {
+            JWTAuth::invalidate($token);
+            throw new InactiveUserException('Tu cuenta está desactivada. Contacta al administrador.');
+        }
+
         return [
             'mensaje' => 'Login correcto',
             'token'   => $token,
@@ -105,6 +100,7 @@ class AuthService
         ];
     }
 
+    
     public function logout(): void
     {
         $token = JWTAuth::getToken();
@@ -148,31 +144,24 @@ class AuthService
     public function restablecerPassword(array $datos): void
     {
         try {
-            $payload = JWTAuth::setToken($datos['token'])->getPayload();
-
-            if ($payload->get('type') !== 'password_reset') {
-                throw new InvalidTokenException('Token no válido para esta operación');
-            }
-
-            $userId = $payload->get('user_id');
-            $user = User::find($userId);
+            // Authenticate ya descodifica el token y comprueba si el usuario existe de golpe
+            $user = JWTAuth::setToken($datos['token'])->authenticate();
 
             if (!$user) {
                 throw new InvalidTokenException('Usuario no encontrado');
             }
 
-            $userToken = JWTAuth::setToken($datos['token'])->authenticate();
-            if (!$userToken || $userToken->id !== $user->id) {
-                throw new InvalidTokenException('Token inválido');
+            // Validamos que el tipo de uso en el payload sea el correcto
+            $payload = JWTAuth::getPayload();
+            if ($payload->get('type') !== 'password_reset') {
+                throw new InvalidTokenException('Token no válido para esta operación');
             }
 
-            // actualizar password y forzar logout de otras sesiones
             $user->update([
                 'password' => Hash::make($datos['password'])
             ]);
 
-            // invalidar el token de recuperación
-            JWTAuth::invalidate(JWTAuth::getToken());
+            JWTAuth::invalidate($datos['token']);
 
             Log::info('Contraseña restablecida', ['user_id' => $user->id, 'email' => $user->email]);
 
@@ -205,7 +194,6 @@ class AuthService
             'rol' => $usuario->rol?->value,
             'rol_label' => $usuario->rol_label,
             'activo' => $usuario->activo,
-            'perfil' => $usuario->perfil, // Médico o Paciente
         ];
     }
 

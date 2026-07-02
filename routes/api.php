@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\UserController;
+
 
 // Rutas públicas
 Route::post('/register', [AuthController::class, 'register']);
@@ -10,6 +12,8 @@ Route::post('/recuperar-password', [AuthController::class, 'recuperarPassword'])
 Route::post('/restablecer-password', [AuthController::class, 'restablecerPassword']);
 
 // Rutas protegidas
-Route::middleware('auth:api')->group(function () {
+Route::middleware('jwt.auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/mi-perfil', [UserController::class, 'perfil']);
 });
+

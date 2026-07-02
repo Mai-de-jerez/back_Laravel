@@ -5,15 +5,23 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UserService
 {
     /**
      * Obtener usuario por ID con sus relaciones
      */
-    public function obtenerConPerfil(int $userId): ?User
+
+    public function obtenerConPerfil(int $userId): User
     {
-        return User::with(['medico', 'paciente'])->find($userId);
+        $user = User::with(['medico', 'paciente'])->find($userId);
+        
+        if (!$user) {
+            throw new NotFoundHttpException('Usuario no encontrado');
+        }
+        
+        return $user;
     }
 
     /**
