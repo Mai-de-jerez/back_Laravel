@@ -64,13 +64,12 @@ class AuthService
             throw $e;
         }
 
+        $usuario->load(['medico', 'paciente']);
         $token = JWTAuth::fromUser($usuario);
 
         return [
-            'mensaje'  => 'Usuario registrado correctamente',
             'token'    => $token,
-            'usuario'  => $this->formatearUsuario($usuario), 
-            'foto_url' => $this->fileUploadService->obtenerUrl($rutaFoto),
+            'usuario'  => $usuario, 
         ];
     }
 
@@ -93,10 +92,11 @@ class AuthService
             throw new InactiveUserException('Tu cuenta está desactivada. Contacta al administrador.');
         }
 
+        $usuario->load(['medico', 'paciente']);
+
         return [
-            'mensaje' => 'Login correcto',
             'token'   => $token,
-            'usuario' => $this->formatearUsuario($usuario), 
+            'usuario' => $usuario, 
         ];
     }
 
@@ -111,7 +111,7 @@ class AuthService
         }
     }
 
-    public function recuperarPassword(string $email): array
+    public function recuperarPassword(string $email): void
     {
         $user = User::porEmail($email)->first();
 
@@ -121,8 +121,7 @@ class AuthService
 
         if (!$user->estaActivo()) {
             Log::warning('Intento de recuperación de usuario inactivo', ['email' => $email]);
-            // MENTIMOS por seguridad
-            return ['mensaje' => 'Enlace enviado a tu email'];
+            return;
         }
 
         $token = JWTAuth::claims([
@@ -136,9 +135,6 @@ class AuthService
 
         Log::info('Email de recuperación enviado', ['email' => $email, 'user_id' => $user->id]);
 
-        return [
-            'mensaje' => 'Enlace enviado a tu email',
-        ];
     }
 
     public function restablecerPassword(array $datos): void
@@ -178,38 +174,18 @@ class AuthService
     }
 
     /**
-     * Método para formatear usuario en respuestas
-     */
-    private function formatearUsuario(User $usuario): array
-    {
-        return [
-            'id' => $usuario->id,
-            'nombre' => $usuario->nombre,
-            'apellidos' => $usuario->apellidos,
-            'nombre_completo' => $usuario->nombre_completo,
-            'email' => $usuario->email,
-            'telefono' => $usuario->telefono,
-            'foto' => $usuario->foto,
-            'foto_url' => $this->fileUploadService->obtenerUrl($usuario->foto),
-            'rol' => $usuario->rol?->value,
-            'rol_label' => $usuario->rol_label,
-            'activo' => $usuario->activo,
-        ];
-    }
-
-    /**
      * Refrescar token
      */
     public function refreshToken(): array
     {
         try {
-            $newToken = JWTAuth::refresh(JWTAuth::getToken());
+            $token = JWTAuth::refresh(JWTAuth::getToken());
             $usuario = JWTAuth::user();
+            $usuario->load(['medico', 'paciente']);
 
             return [
-                'mensaje' => 'Token refrescado correctamente',
-                'token' => $newToken,
-                'usuario' => $this->formatearUsuario($usuario)
+                'token'   => $token,
+                'usuario' => $usuario,
             ];
         } catch (JWTException $e) {
             Log::error('Error al refrescar token: ' . $e->getMessage());

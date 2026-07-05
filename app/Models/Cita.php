@@ -31,7 +31,6 @@ class Cita extends Model
         return [
             'estado' => EstadoCita::class,
             'fecha'  => 'date',
-            'hora'   => 'datetime:H:i',
         ];
     }
 

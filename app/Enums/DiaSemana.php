@@ -9,6 +9,4 @@ enum DiaSemana: string
     case MIERCOLES = 'miercoles';
     case JUEVES    = 'jueves';
     case VIERNES   = 'viernes';
-    case SABADO    = 'sabado';
-    case DOMINGO   = 'domingo';
 }

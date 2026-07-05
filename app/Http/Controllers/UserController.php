@@ -14,15 +14,19 @@ class UserController extends Controller
     /**
      * Endpoint para obtener el perfil del usuario autenticado con sus relaciones.
      */
+
     public function perfil(Request $request): JsonResponse
     {
         $usuario = $this->userService->obtenerConPerfil($request->user()->id);
-        return (new UserProfileResource($usuario))->response();
+        
+        return response()->json([
+            'usuario' => new UserProfileResource($usuario)
+        ]);
     }
 
     /**
      * Endpoint para actualizar el perfil del usuario autenticado.
-     */
+     */   
     public function actualizar(Request $request): JsonResponse
     {
         $usuario = $request->user();
@@ -30,12 +34,11 @@ class UserController extends Controller
         $datosUsuario = $request->validate([
             'nombre'    => 'sometimes|string|min:3|max:100|regex:/^[\pL\s]+$/u',
             'apellidos' => 'sometimes|string|min:3|max:150|regex:/^[\pL\s]+$/u',
-            'email' => 'sometimes|email|unique:usuarios,email,' . $usuario->id,
+            'email'     => 'sometimes|email|unique:usuarios,email,' . $usuario->id,
             'telefono'  => 'nullable|string|max:20',
             'foto'      => 'nullable|image|max:2048',
             'password'  => ['sometimes', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
         ]);
-
         // Solo si es PACIENTE permitimos editar sus datos especiales
         $datosRelacion = [];
         if ($usuario->paciente) {
@@ -45,17 +48,30 @@ class UserController extends Controller
             ]);
         }
 
-        // Pasamos al servicio solo lo que le corresponde
-        $usuarioActualizado = $this->userService->actualizarPerfil(
-        $usuario->id,
-        $request->except(['foto', 'password_confirmation', '_token']), 
-        $request->file('foto'),
-        $datosRelacion
-    );
+        unset($datosUsuario['foto']);
 
-        $usuarioActualizado->load(['medico', 'paciente']);
-        return (new UserProfileResource($usuarioActualizado))->response();
+        $usuarioActualizado = $this->userService->actualizarPerfil(
+            $usuario->id,
+            $datosUsuario, 
+            $request->file('foto'),
+            $datosRelacion
+        );
+
+        return response()->json([
+            'mensaje' => 'Perfil actualizado correctamente',
+            'usuario' => new UserProfileResource($usuarioActualizado)
+        ]);
     }
 
-    
+    /**
+     * Listar usuarios (solo admin)
+     */
+    public function listarUsuarios(Request $request): JsonResponse
+    {
+        $filtros = $request->only(['id','rol', 'nombre', 'apellidos']);
+        
+        $usuarios = $this->userService->listarUsuarios($filtros);
+        
+        return response()->json($usuarios);
+    }
 }

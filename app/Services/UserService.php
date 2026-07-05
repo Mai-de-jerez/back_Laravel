@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Enums\RolUsuario;
 use App\Services\FileUploadService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,11 +26,10 @@ class UserService
     public function obtenerConPerfil(int $userId): User
     {
         $user = User::with(['medico', 'paciente'])->find($userId);
-        // no usamos findOrFail() porque quiero lanzar mi propia excepción personalizada 
+
         if (!$user) {
             throw new NotFoundHttpException('Usuario no encontrado');
         }
-        
         return $user;
     }
 
@@ -45,7 +45,12 @@ class UserService
     {
         // Buscamos al usuario 
         return DB::transaction(function () use ($userId, $datosUsuario, $foto, $datosRelacion) {
-            $user = User::findOrFail($userId);
+            
+            $user = User::find($userId);
+
+            if (!$user) {
+                throw new NotFoundHttpException('Usuario no encontrado');
+            }
 
             // Si la contraseña viene, la encriptamos, si no, la eliminamos del array para que no se actualice
             if (!empty($datosUsuario['password'])) {
@@ -71,15 +76,42 @@ class UserService
                 }
             }
 
+            $user->load(['medico', 'paciente']);
             return $user;
+            
         });
+    }
+
+    /**
+     * Listar usuarios con filtros opcionales y paginación
+     * @param array $filtros parametro que pasa los filtros para listar usuarios
+     * @return array retorna un array con los usuarios filtrados y paginados
+     */
+    public function listarUsuarios(array $filtros = []): array
+    {
+        $paginator = User::query()
+            ->select(['id', 'nombre', 'apellidos', 'email', 'rol', 'activo', 'fecha_creacion', 'fecha_modificacion'])
+            ->when(!empty($filtros['id']), fn($q) => $q->where('id', $filtros['id']))
+            ->when(!empty($filtros['rol']), fn($q) => $q->where('rol', $filtros['rol']))
+            ->when(!empty($filtros['nombre']), fn($q) => $q->where('nombre', 'LIKE', $filtros['nombre'] . '%'))
+            ->when(!empty($filtros['apellidos']), fn($q) => $q->where('apellidos', 'LIKE', $filtros['apellidos'] . '%'))
+            ->latest('fecha_creacion')
+            ->paginate(15);
+
+        return [
+            'usuarios' => $paginator->items(),
+            'pagina_actual' => $paginator->currentPage(),
+            'ultima_pagina' => $paginator->lastPage(),
+            'por_pagina' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            ];
     }
 
     /**
      * Cambiar rol de usuario
      * @param int $userId parametro que pasa el id del susodicho
      * @param string $nuevoRol parametro que pasa el nuevo rol del usuario
-     * @return $User retorna el usuario con el nuevo rol
+     * @return User retorna el usuario con el nuevo rol
      * @throws \InvalidArgumentException si el rol no es válido
      */  
     public function cambiarRol(int $userId, string $nuevoRol): User
@@ -97,6 +129,7 @@ class UserService
             'nuevo_rol' => $nuevoRol
         ]); 
 
+         $user->load(['medico', 'paciente']);
         return $user;
     }
 

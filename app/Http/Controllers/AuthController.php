@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AuthService;
+use App\Http\Resources\UserProfileResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;  
 use Illuminate\Validation\Rules\Password;
@@ -11,39 +12,47 @@ class AuthController extends Controller
 {
     public function __construct(private AuthService $authService) {}
 
+
     public function register(Request $request): JsonResponse
     {
-        $request->validate([
+        $datosValidados = $request->validate([
             'nombre'         => 'required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
             'apellidos'      => 'required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
             'email'          => 'required|email|unique:usuarios,email',
             'password'       => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
             'telefono'       => 'nullable|string|max:20',
-            'foto'           => 'nullable|file', 
+            'foto'           => 'nullable|file|image|max:2048', 
             'numero_tarjeta' => 'required|digits:16',
             'compania'       => 'required|string|min:3|max:100',
         ]);
 
-        // Las excepciones de subida se manejan solas en bootstrap/app.php
-        $resultado = $this->authService->register(
-            $request->except('foto'),
-            $request->file('foto')
-        );
+        $foto = $request->file('foto');
+        unset($datosValidados['foto']); 
+        $resultado = $this->authService->register($datosValidados, $foto);
 
-        return response()->json($resultado, 201);
+        return response()->json([
+            'mensaje' => 'Usuario registrado correctamente',
+            'token'   => $resultado['token'],
+            'usuario' => new UserProfileResource($resultado['usuario'])
+        ], 201); 
     }
 
 
     public function login(Request $request): JsonResponse
     {
-        $request->validate([
+
+        $credenciales = $request->validate([
             'email'    => 'required|email',
             'password' => 'required|string',
         ]);
 
-        $resultado = $this->authService->login($request->all());
+        $resultado = $this->authService->login($credenciales);
 
-        return response()->json($resultado);
+        return response()->json([
+            'mensaje' => 'Login correcto',
+            'token'   => $resultado['token'],
+            'usuario' => new UserProfileResource($resultado['usuario'])
+        ], 200);
     }
 
 
@@ -51,32 +60,46 @@ class AuthController extends Controller
     {
         $this->authService->logout();
 
-        return response()->json(['mensaje' => 'Sesión cerrada correctamente']);
+        return response()->json(['mensaje' => 'Sesión cerrada correctamente'], 200);
     }
 
 
     public function recuperarPassword(Request $request): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|email',
+        $datos = $request->validate([
+            'email' => 'required|email'
         ]);
 
-        // Si el email no existe, EmailNotFoundException se encarga de mentir con un 200 en bootstrap/app.php
-        $resultado = $this->authService->recuperarPassword($request->email);
-        
-        return response()->json($resultado);
+        $this->authService->recuperarPassword($datos['email']);
+
+        return response()->json(['mensaje' => 'Enlace enviado a tu email'], 200);
     }
 
 
     public function restablecerPassword(Request $request): JsonResponse
     {
-        $request->validate([
+        $datosValidados = $request->validate([
             'token'    => 'required|string',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
 
-        $this->authService->restablecerPassword($request->all());
+        $this->authService->restablecerPassword([
+            'token'    => $datosValidados['token'],
+            'password' => $datosValidados['password'],
+        ]);
 
-        return response()->json(['mensaje' => 'Contraseña restablecida correctamente']);
+        return response()->json(['mensaje' => 'Contraseña restablecida correctamente'], 200);
+    }
+
+
+    public function refreshToken(): JsonResponse
+    {
+        $resultado = $this->authService->refreshToken();
+
+        return response()->json([
+            'mensaje' => 'Token refrescado correctamente',
+            'token'   => $resultado['token'],
+            'usuario' => new UserProfileResource($resultado['usuario'])
+        ], 200);
     }
 }

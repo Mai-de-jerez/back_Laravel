@@ -4,8 +4,7 @@ namespace App\Enums;
 
 enum EstadoCita: string
 {
-    case PENDIENTE  = 'pendiente';
-    case CONFIRMADA = 'confirmada';
+    case PENDIENTE  = 'activa';
     case CANCELADA  = 'cancelada';
-    case COMPLETADA = 'completada';
+    case COMPLETADA = 'finalizada';
 }
