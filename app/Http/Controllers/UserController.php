@@ -74,4 +74,16 @@ class UserController extends Controller
         
         return response()->json($usuarios);
     }
+
+    /**
+     * Obtener detalle de un usuario por ID (solo admin)
+     */
+    public function mostrarUsuario(int $id): JsonResponse
+    {
+        $usuario = $this->userService->obtenerConPerfil($id);
+        
+        return response()->json([
+            'usuario' => new UserProfileResource($usuario)
+        ]);
+    }
 }
