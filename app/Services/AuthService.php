@@ -19,6 +19,7 @@ use App\Exceptions\Auth\EmailNotFoundException;
 use App\Exceptions\Auth\InactiveUserException;
 use App\Mail\PasswordResetMail;
 
+
 class AuthService
 {
     public function __construct(

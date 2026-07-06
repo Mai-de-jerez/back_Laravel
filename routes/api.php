@@ -21,6 +21,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/usuarios', [UserController::class, 'listarUsuarios']);
         Route::get('/usuarios/{id}', [UserController::class, 'mostrarUsuario']);
+        Route::post('/usuarios', [UserController::class, 'crearUsuario']);
     });
 });
 

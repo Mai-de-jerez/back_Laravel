@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\UserProfileResource;
+use App\Http\Requests\ActualizarPerfilRequest;
+use App\Http\Requests\CrearUsuarioRequest;
+use App\Services\UserService;
 
 class UserController extends Controller
 {
@@ -27,33 +29,32 @@ class UserController extends Controller
     /**
      * Endpoint para actualizar el perfil del usuario autenticado.
      */   
-    public function actualizar(Request $request): JsonResponse
+    public function actualizar(ActualizarPerfilRequest $request): JsonResponse
     {
         $usuario = $request->user();
 
-        $datosUsuario = $request->validate([
-            'nombre'    => 'sometimes|string|min:3|max:100|regex:/^[\pL\s]+$/u',
-            'apellidos' => 'sometimes|string|min:3|max:150|regex:/^[\pL\s]+$/u',
-            'email'     => 'sometimes|email|unique:usuarios,email,' . $usuario->id,
-            'telefono'  => 'nullable|string|max:20',
-            'foto'      => 'nullable|image|max:2048',
-            'password'  => ['sometimes', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()],
-        ]);
-        // Solo si es PACIENTE permitimos editar sus datos especiales
+        $datosUsuario = $request->validated();
+
+        // extraemos la foto de los datos validados
+        $foto = $request->file('foto');
+        unset($datosUsuario['foto']);
+
+        // datos de relación con paciente
         $datosRelacion = [];
         if ($usuario->paciente) {
-            $datosRelacion = $request->validate([
-                'numero_tarjeta' => 'sometimes|digits:16',
-                'compania'       => 'sometimes|string|min:3|max:100',
-            ]);
+            $datosRelacion = [
+                'numero_tarjeta' => $datosUsuario['numero_tarjeta'] ?? null,
+                'compania' => $datosUsuario['compania'] ?? null,
+            ];
+            // eliminamos estos campos de los datos para que no se intenten actualizar en la tabla 'usuarios'
+            unset($datosUsuario['numero_tarjeta']);
+            unset($datosUsuario['compania']);
         }
-
-        unset($datosUsuario['foto']);
 
         $usuarioActualizado = $this->userService->actualizarPerfil(
             $usuario->id,
-            $datosUsuario, 
-            $request->file('foto'),
+            $datosUsuario,
+            $foto,
             $datosRelacion
         );
 
@@ -85,5 +86,21 @@ class UserController extends Controller
         return response()->json([
             'usuario' => new UserProfileResource($usuario)
         ]);
+    }
+
+    /**
+     * Crear un nuevo usuario (admin)
+     */
+    public function crearUsuario(CrearUsuarioRequest $request): JsonResponse
+    {
+        $usuario = $this->userService->crearUsuario(
+            $request->validated(),
+            $request->file('foto')
+        );
+
+        return response()->json([
+            'mensaje' => 'Usuario creado correctamente',
+            'usuario' => new UserProfileResource($usuario)
+        ], 201);
     }
 }

@@ -3,12 +3,15 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\Medico;              
+use App\Models\Paciente; 
 use App\Enums\RolUsuario;
 use App\Services\FileUploadService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Illuminate\Support\Facades\Hash; 
 
 class UserService
 {
@@ -105,6 +108,54 @@ class UserService
             'por_pagina' => $paginator->perPage(),
             'total' => $paginator->total(),
             ];
+    }
+
+    
+    /**
+     * Crear un nuevo usuario con su relación correspondiente (paciente o médico)
+     * @param array $datos parametro que pasa los datos del usuario a crear
+     * @param UploadedFile|null $foto parametro que pasa la foto del usuario a crear
+     * @return User retorna el usuario creado con sus relaciones medico y paciente
+     */
+    public function crearUsuario(array $datos, ?UploadedFile $foto = null): User
+    {
+        $rutaFoto = $foto
+            ? $this->fileUploadService->subirFoto($foto)
+            : $this->fileUploadService->getFotoDefault();
+
+        return DB::transaction(function () use ($datos, $rutaFoto) {
+            
+            $usuario = User::create([
+                'nombre' => $datos['nombre'],
+                'apellidos' => $datos['apellidos'],
+                'email' => $datos['email'],
+                'password' => Hash::make($datos['password']),
+                'telefono' => $datos['telefono'] ?? null,
+                'foto' => $rutaFoto,
+                'rol' => $datos['rol'],
+                'activo' => true,
+            ]);
+
+            // creamos la relación correspondiente según el rol del usuario
+            if ($datos['rol'] === 'medico') {
+                Medico::create([
+                    'id_usuario' => $usuario->id,
+                    'numero_colegiado' => $datos['numero_colegiado'],
+                    'id_especialidad' => $datos['id_especialidad'],
+                ]);
+            }
+
+            if ($datos['rol'] === 'paciente') {
+                Paciente::create([
+                    'id_usuario' => $usuario->id,
+                    'numero_tarjeta' => $datos['numero_tarjeta'],
+                    'compania' => $datos['compania'],
+                ]);
+            }
+
+            $usuario->load(['medico', 'paciente']);
+            return $usuario;
+        });
     }
 
     /**

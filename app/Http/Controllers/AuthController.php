@@ -7,34 +7,24 @@ use App\Http\Resources\UserProfileResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;  
 use Illuminate\Validation\Rules\Password;
+use App\Http\Requests\RegisterRequest;
 
 class AuthController extends Controller
 {
     public function __construct(private AuthService $authService) {}
 
-
-    public function register(Request $request): JsonResponse
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $datosValidados = $request->validate([
-            'nombre'         => 'required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
-            'apellidos'      => 'required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
-            'email'          => 'required|email|unique:usuarios,email',
-            'password'       => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
-            'telefono'       => 'nullable|string|max:20',
-            'foto'           => 'nullable|file|image|max:2048', 
-            'numero_tarjeta' => 'required|digits:16',
-            'compania'       => 'required|string|min:3|max:100',
-        ]);
-
+        $datos = $request->validated();
         $foto = $request->file('foto');
-        unset($datosValidados['foto']); 
-        $resultado = $this->authService->register($datosValidados, $foto);
+
+        $resultado = $this->authService->register($datos, $foto);
 
         return response()->json([
             'mensaje' => 'Usuario registrado correctamente',
-            'token'   => $resultado['token'],
-            'usuario' => new UserProfileResource($resultado['usuario'])
-        ], 201); 
+            'token' => $resultado['token'],
+            'usuario' => new UserProfileResource($resultado['usuario']),
+        ], 201);
     }
 
 
