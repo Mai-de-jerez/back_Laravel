@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\EspecialidadController;
 
 
 // Rutas públicas
@@ -17,6 +18,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/mi-perfil', [UserController::class, 'perfil']);
     Route::post('/actualizar-perfil', [UserController::class, 'actualizar']);
+    Route::get('/especialidades', [EspecialidadController::class, 'index']);
 
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         Route::get('/usuarios', [UserController::class, 'listarUsuarios']);
