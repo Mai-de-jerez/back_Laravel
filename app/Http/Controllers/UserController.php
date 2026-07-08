@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\UserProfileResource;
 use App\Http\Requests\ActualizarPerfilRequest;
+use App\Http\Requests\ActualizarUsuarioRequest;
 use App\Http\Requests\CrearUsuarioRequest;
 use App\Services\UserService;
 
@@ -102,5 +103,19 @@ class UserController extends Controller
             'mensaje' => 'Usuario creado correctamente',
             'usuario' => new UserProfileResource($usuario)
         ], 201);
+    }
+
+    public function actualizarUsuario(ActualizarUsuarioRequest $request, int $id): JsonResponse
+    {
+        $usuario = $this->userService->actualizarUsuario(
+            $id,
+            $request->except(['foto']),
+            $request->file('foto')
+        );
+
+        return response()->json([
+            'mensaje' => 'Usuario actualizado correctamente',
+            'usuario' => new UserProfileResource($usuario)
+        ], 200);
     }
 }

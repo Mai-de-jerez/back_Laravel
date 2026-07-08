@@ -159,6 +159,67 @@ class UserService
     }
 
     /**
+     * Actualizar un usuario (admin)
+     * @param int $userId parametro que pasa el id del usuario a actualizar
+     * @param array $datos parametro que pasa los datos del usuario a actualizar
+     * @param UploadedFile|null $foto parametro que pasa la foto del usuario a actualizar
+     * @return User retorna el usuario actualizado con sus relaciones medico y paciente
+     */
+    public function actualizarUsuario(int $userId, array $datos, ?UploadedFile $foto = null): User
+    {
+        return DB::transaction(function () use ($userId, $datos, $foto) {
+            
+            $user = User::find($userId);
+
+            if (!$user) {
+                throw new NotFoundHttpException('Usuario no encontrado');
+            }
+
+            // Si la contraseña viene, la encriptamos
+            if (!empty($datos['password'])) {
+                $datos['password'] = bcrypt($datos['password']);
+            } else {
+                unset($datos['password']);
+            }
+
+            // Si la foto viene, la actualizamos
+            if ($foto) {
+                $rutaAnterior = $user->foto;
+                $datos['foto'] = $this->fileUploadService->actualizarFoto($foto, $rutaAnterior);
+            }
+
+            // Actualizar tabla 'usuarios'
+            $user->update($datos);
+
+            // Actualizar relación según rol (si viene)
+            if (isset($datos['rol'])) {
+                // Si es paciente y viene con datos de paciente
+                if ($datos['rol'] === 'paciente' && isset($datos['numero_tarjeta'], $datos['compania'])) {
+                    if ($user->paciente) {
+                        $user->paciente->update([
+                            'numero_tarjeta' => $datos['numero_tarjeta'],
+                            'compania' => $datos['compania'],
+                        ]);
+                    }
+                }
+
+                // Si es médico y viene con datos de médico
+                if ($datos['rol'] === 'medico' && isset($datos['numero_colegiado'], $datos['id_especialidad'])) {
+                    if ($user->medico) {
+                        $user->medico->update([
+                            'numero_colegiado' => $datos['numero_colegiado'],
+                            'id_especialidad' => $datos['id_especialidad'],
+                        ]);
+                    }
+                }
+            }
+
+            $user->load(['medico', 'paciente']);
+            return $user;
+        });
+    }
+
+    /**
      * Cambiar rol de usuario
      * @param int $userId parametro que pasa el id del susodicho
      * @param string $nuevoRol parametro que pasa el nuevo rol del usuario
