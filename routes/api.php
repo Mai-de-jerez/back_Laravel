@@ -14,7 +14,7 @@ Route::post('/restablecer-password', [AuthController::class, 'restablecerPasswor
 Route::post('/auth/refresh', [AuthController::class, 'refreshToken']);
 
 // Rutas protegidas
-Route::middleware('jwt.auth')->group(function () {
+Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/mi-perfil', [UserController::class, 'perfil']);
     Route::post('/actualizar-perfil', [UserController::class, 'actualizar']);

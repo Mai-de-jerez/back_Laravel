@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'jwt.auth' => Authenticate::class,
+            'auth' => Authenticate::class,
             'admin' => AdminMiddleware::class,
         ]);
     })
