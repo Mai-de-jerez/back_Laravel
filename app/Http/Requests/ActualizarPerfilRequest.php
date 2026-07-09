@@ -56,7 +56,7 @@ class ActualizarPerfilRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'nombre.required' => 'El nombre es obligatorio bro',
+            'nombre.required' => 'El nombre es obligatorio',
             'nombre.min' => 'El nombre debe tener al menos 3 caracteres',
             'nombre.max' => 'El nombre no puede tener más de 100 caracteres',
             'nombre.regex' => 'El nombre solo puede contener letras y espacios',

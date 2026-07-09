@@ -4,7 +4,6 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use Tymon\JWTAuth\Http\Middleware\Authenticate;
 use App\Http\Middleware\AdminMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -16,9 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'auth' => Authenticate::class,
             'admin' => AdminMiddleware::class,
         ]);
+        
+        $middleware->redirectGuestsTo(fn () => null); 
     })
 
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -44,17 +44,21 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['mensaje' => $e->getMessage()], $e->getCode());
         });
 
-        $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
-            return response()->json(['mensaje' => 'Token expirado'], 401);
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e) {
+            return response()->json(['mensaje' => 'No autenticado'], 401);
         });
 
-        $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
-            return response()->json(['mensaje' => 'Token inválido'], 401);
-        });
+        // $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+        //     return response()->json(['mensaje' => 'Token expirado'], 401);
+        // });
 
-        $exceptions->render(function (\Tymon\JWTAuth\Exceptions\JWTException $e) {
-            return response()->json(['mensaje' => 'Token no proporcionado'], 401);
-        });
+        // $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+        //     return response()->json(['mensaje' => 'Token inválido'], 401);
+        // });
+
+        // $exceptions->render(function (\Tymon\JWTAuth\Exceptions\JWTException $e) {
+        //     return response()->json(['mensaje' => 'Token no proporcionado'], 401);
+        // });
 
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException $e) {
             return response()->json(['mensaje' => 'Token no proporcionado'], 401);

@@ -105,14 +105,17 @@ class UserController extends Controller
         ], 201);
     }
 
+
     public function actualizarUsuario(ActualizarUsuarioRequest $request, int $id): JsonResponse
     {
+        $datosUsuario = $request->validated();
+        unset($datosUsuario['foto']);
+
         $usuario = $this->userService->actualizarUsuario(
             $id,
-            $request->except(['foto']),
+            $datosUsuario,
             $request->file('foto')
         );
-
         return response()->json([
             'mensaje' => 'Usuario actualizado correctamente',
             'usuario' => new UserProfileResource($usuario)

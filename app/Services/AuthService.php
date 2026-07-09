@@ -2,22 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\Paciente;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Models\Paciente;
 use App\Enums\RolUsuario;
-use Tymon\JWTAuth\Facades\JWTAuth;
-use Tymon\JWTAuth\Exceptions\TokenExpiredException;
-use Tymon\JWTAuth\Exceptions\TokenInvalidException;
-use Tymon\JWTAuth\Exceptions\JWTException;
 use App\Exceptions\Auth\InvalidCredentialsException;
 use App\Exceptions\Auth\InvalidTokenException;
-use App\Exceptions\Auth\EmailNotFoundException;
 use App\Exceptions\Auth\InactiveUserException;
-use App\Mail\PasswordResetMail;
+use Illuminate\Support\Facades\Password;
 
 
 class AuthService
@@ -66,7 +61,7 @@ class AuthService
         }
 
         $usuario->load(['medico', 'paciente']);
-        $token = JWTAuth::fromUser($usuario);
+        $token = $usuario->createToken('api-token')->plainTextToken;
 
         return [
             'token'    => $token,
@@ -74,26 +69,20 @@ class AuthService
         ];
     }
 
-
     public function login(array $datos): array
     {
-        $token = JWTAuth::attempt([
-            'email'    => $datos['email'],
-            'password' => $datos['password'],
-        ]);
+        $usuario = User::porEmail($datos['email'])->first();
 
-        if (!$token) {
+        if (!$usuario || !Hash::check($datos['password'], $usuario->password)) {
             throw new InvalidCredentialsException();
         }
 
-        $usuario = JWTAuth::user();
-
         if (!$usuario->estaActivo()) {
-            JWTAuth::invalidate($token);
             throw new InactiveUserException('Tu cuenta está desactivada. Contacta al administrador.');
         }
 
         $usuario->load(['medico', 'paciente']);
+        $token = $usuario->createToken('api-token')->plainTextToken;
 
         return [
             'token'   => $token,
@@ -101,96 +90,41 @@ class AuthService
         ];
     }
 
-    
     public function logout(): void
     {
-        $token = JWTAuth::getToken();
-        
-        if ($token) {
-            JWTAuth::invalidate($token);
-            Log::info('Usuario cerró sesión', ['user_id' => JWTAuth::user()?->id]);
+        $usuario = Auth::user();
+
+        if ($usuario && $usuario->currentAccessToken()) {
+            $usuario->currentAccessToken()->delete();
+            Log::info('Usuario cerró sesión', ['user_id' => $usuario->id]);
         }
     }
 
     public function recuperarPassword(string $email): void
     {
-        $user = User::porEmail($email)->first();
+        $status = Password::sendResetLink(['email' => $email]);
 
-        if (!$user) {
-            throw new EmailNotFoundException();
-        }
-
-        if (!$user->estaActivo()) {
-            Log::warning('Intento de recuperación de usuario inactivo', ['email' => $email]);
-            return;
-        }
-
-        $token = JWTAuth::claims([
-            'type' => 'password_reset',
-            'user_id' => $user->id 
-        ])->fromUser($user);
-
-        $resetUrl = config('app.frontend_url') . '/auth/restablecer-password?token=' . $token;
-
-        Mail::to($email)->send(new PasswordResetMail($resetUrl));
-
-        Log::info('Email de recuperación enviado', ['email' => $email, 'user_id' => $user->id]);
-
+        Log::info('Solicitud de recuperación procesada', ['email' => $email, 'status' => $status]);
     }
 
     public function restablecerPassword(array $datos): void
     {
-        try {
-            // Authenticate ya descodifica el token y comprueba si el usuario existe de golpe
-            $user = JWTAuth::setToken($datos['token'])->authenticate();
-
-            if (!$user) {
-                throw new InvalidTokenException('Usuario no encontrado');
+        $status = Password::reset(
+            [
+                'email' => $datos['email'],
+                'password' => $datos['password'],
+                'password_confirmation' => $datos['password_confirmation'],
+                'token' => $datos['token'],
+            ],
+            function ($user, $password) {
+                $user->update(['password' => Hash::make($password)]);
             }
+        );
 
-            // Validamos que el tipo de uso en el payload sea el correcto
-            $payload = JWTAuth::getPayload();
-            if ($payload->get('type') !== 'password_reset') {
-                throw new InvalidTokenException('Token no válido para esta operación');
-            }
-
-            $user->update([
-                'password' => Hash::make($datos['password'])
-            ]);
-
-            JWTAuth::invalidate($datos['token']);
-
-            Log::info('Contraseña restablecida', ['user_id' => $user->id, 'email' => $user->email]);
-
-        } catch (TokenExpiredException $e) {
-            Log::warning('Intento de reset con token expirado');
-            throw new InvalidTokenException('El enlace ha expirado. Solicita uno nuevo.');
-        } catch (TokenInvalidException $e) {
-            Log::warning('Intento de reset con token inválido');
-            throw new InvalidTokenException('Token inválido. Solicita un nuevo enlace.');
-        } catch (JWTException $e) {
-            Log::error('Error JWT en restablecerPassword: ' . $e->getMessage());
-            throw new InvalidTokenException('Error al procesar la solicitud');
+        if ($status !== Password::PasswordReset) {
+            throw new InvalidTokenException(__($status));
         }
-    }
 
-    /**
-     * Refrescar token
-     */
-    public function refreshToken(): array
-    {
-        try {
-            $token = JWTAuth::refresh(JWTAuth::getToken());
-            $usuario = JWTAuth::user();
-            $usuario->load(['medico', 'paciente']);
-
-            return [
-                'token'   => $token,
-                'usuario' => $usuario,
-            ];
-        } catch (JWTException $e) {
-            Log::error('Error al refrescar token: ' . $e->getMessage());
-            throw new InvalidTokenException('No se pudo refrescar el token');
-        }
+        Log::info('Contraseña restablecida', ['email' => $datos['email']]);
     }
 }

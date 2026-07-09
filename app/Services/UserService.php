@@ -220,32 +220,6 @@ class UserService
     }
 
     /**
-     * Cambiar rol de usuario
-     * @param int $userId parametro que pasa el id del susodicho
-     * @param string $nuevoRol parametro que pasa el nuevo rol del usuario
-     * @return User retorna el usuario con el nuevo rol
-     * @throws \InvalidArgumentException si el rol no es válido
-     */  
-    public function cambiarRol(int $userId, string $nuevoRol): User
-    {
-        if (!RolUsuario::tryFrom($nuevoRol)) {
-            throw new \InvalidArgumentException('Rol no válido');
-        }
-        
-        $user = User::findOrFail($userId);
-        $user->rol = $nuevoRol;
-        $user->save();
-
-        Log::info('Rol de usuario cambiado', [
-            'user_id' => $userId,
-            'nuevo_rol' => $nuevoRol
-        ]); 
-
-         $user->load(['medico', 'paciente']);
-        return $user;
-    }
-
-    /**
      * Obtener estadísticas de usuarios
      * @return array retorna un array con las estadísticas de usuarios
      */

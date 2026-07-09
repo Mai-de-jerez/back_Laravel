@@ -8,12 +8,14 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
+
 class PasswordResetMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public function __construct(
-        private string $resetUrl
+        private string $resetUrl,
+        private string $nombre    
     ) {}
 
     public function envelope(): Envelope
@@ -30,6 +32,7 @@ class PasswordResetMail extends Mailable
             with: [
                 'resetUrl' => $this->resetUrl,
                 'expiraEn' => 15, 
+                'nombre' => $this->nombre,   
             ]
         );
     }

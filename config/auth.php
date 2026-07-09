@@ -44,7 +44,7 @@ return [
             'provider' => 'users',
         ],
         'api' => [                    
-            'driver' => 'jwt',
+            'driver' => 'sanctum',   
             'provider' => 'users',
         ],
     ],
@@ -71,11 +71,6 @@ return [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
         ],
-
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
     ],
 
     /*
@@ -96,12 +91,11 @@ return [
     | quickly generating a very large amount of password reset tokens.
     |
     */
-
     'passwords' => [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
+            'expire' => 15,   
             'throttle' => 60,
         ],
     ],

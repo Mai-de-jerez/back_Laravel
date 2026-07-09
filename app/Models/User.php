@@ -9,13 +9,15 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Support\Facades\Mail;
+use Laravel\Sanctum\HasApiTokens;
 use App\Enums\RolUsuario;
+use App\Mail\PasswordResetMail;
 
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable 
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasApiTokens;
 
     /**
      * The attributes that are mass assignable.
@@ -63,28 +65,6 @@ class User extends Authenticatable implements JWTSubject
 
     const CREATED_AT = 'fecha_creacion';
     const UPDATED_AT = 'fecha_modificacion';
-
-    // ============ JWT ============
-
-    /**
-     * Obtener el identificador que se almacenará en el JWT
-     */
-    public function getJWTIdentifier()
-    {
-        return $this->getKey();
-    }
-
-    /**
-     * Obtener las reclamaciones personalizadas que se agregarán al JWT
-     */
-    public function getJWTCustomClaims(): array
-    {
-        return [
-            'rol' => $this->rol?->value,
-            'nombre_completo' => $this->nombre_completo,
-            'es_admin' => $this->esAdmin(),
-        ];
-    }
 
     // ============ RELACIONES ============
 
@@ -157,6 +137,20 @@ class User extends Authenticatable implements JWTSubject
     // ============ ACCESSORS ============
 
     /**
+     * Sobrescribe el envío de la notificación de reset de contraseña
+     * para usar nuestro Mailable personalizado (diseño oscuro/morado)
+     * en vez de la notificación por defecto de Laravel.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $resetUrl = config('app.frontend_url') 
+            . '/auth/restablecer-password?token=' . $token 
+            . '&email=' . urlencode($this->email);
+
+        Mail::to($this->email)->send(new PasswordResetMail($resetUrl, $this->nombre));
+    }
+
+    /**
      * Obtener el nombre completo del usuario
      */
     public function getNombreCompletoAttribute(): string
@@ -185,18 +179,6 @@ class User extends Authenticatable implements JWTSubject
             RolUsuario::ADMIN => 'Administrador',
             RolUsuario::MEDICO => 'Médico',
             RolUsuario::PACIENTE => 'Paciente',
-        };
-    }
-
-    /**
-     * Obtener color del rol para UI
-     */
-    public function getRolColorAttribute(): string
-    {
-        return match($this->rol) {
-            RolUsuario::ADMIN => 'danger',
-            RolUsuario::MEDICO => 'primary',
-            RolUsuario::PACIENTE => 'success',
         };
     }
 

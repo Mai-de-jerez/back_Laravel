@@ -65,31 +65,21 @@ class AuthController extends Controller
         return response()->json(['mensaje' => 'Enlace enviado a tu email'], 200);
     }
 
-
     public function restablecerPassword(Request $request): JsonResponse
     {
         $datosValidados = $request->validate([
             'token'    => 'required|string',
+            'email'    => 'required|email',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
 
         $this->authService->restablecerPassword([
-            'token'    => $datosValidados['token'],
-            'password' => $datosValidados['password'],
+            'token'                 => $datosValidados['token'],
+            'email'                 => $datosValidados['email'],
+            'password'              => $datosValidados['password'],
+            'password_confirmation' => $request->input('password_confirmation'),
         ]);
 
         return response()->json(['mensaje' => 'Contraseña restablecida correctamente'], 200);
-    }
-
-
-    public function refreshToken(): JsonResponse
-    {
-        $resultado = $this->authService->refreshToken();
-
-        return response()->json([
-            'mensaje' => 'Token refrescado correctamente',
-            'token'   => $resultado['token'],
-            'usuario' => new UserProfileResource($resultado['usuario'])
-        ], 200);
     }
 }
