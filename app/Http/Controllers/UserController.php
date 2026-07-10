@@ -24,46 +24,32 @@ class UserController extends Controller
         
         return response()->json([
             'usuario' => new UserProfileResource($usuario)
-        ]);
+        ], 200); 
     }
 
     /**
      * Endpoint para actualizar el perfil del usuario autenticado.
      */   
+
     public function actualizar(ActualizarPerfilRequest $request): JsonResponse
     {
         $usuario = $request->user();
-
         $datosUsuario = $request->validated();
-
-        // extraemos la foto de los datos validados
         $foto = $request->file('foto');
         unset($datosUsuario['foto']);
-
-        // datos de relación con paciente
-        $datosRelacion = [];
-        if ($usuario->paciente) {
-            $datosRelacion = [
-                'numero_tarjeta' => $datosUsuario['numero_tarjeta'] ?? null,
-                'compania' => $datosUsuario['compania'] ?? null,
-            ];
-            // eliminamos estos campos de los datos para que no se intenten actualizar en la tabla 'usuarios'
-            unset($datosUsuario['numero_tarjeta']);
-            unset($datosUsuario['compania']);
-        }
 
         $usuarioActualizado = $this->userService->actualizarPerfil(
             $usuario->id,
             $datosUsuario,
-            $foto,
-            $datosRelacion
+            $foto
         );
 
         return response()->json([
             'mensaje' => 'Perfil actualizado correctamente',
             'usuario' => new UserProfileResource($usuarioActualizado)
-        ]);
+        ], 200);
     }
+    
 
     /**
      * Listar usuarios (solo admin)
@@ -74,7 +60,7 @@ class UserController extends Controller
         
         $usuarios = $this->userService->listarUsuarios($filtros);
         
-        return response()->json($usuarios);
+        return response()->json($usuarios, 200);
     }
 
     /**
@@ -86,7 +72,7 @@ class UserController extends Controller
         
         return response()->json([
             'usuario' => new UserProfileResource($usuario)
-        ]);
+        ], 200);
     }
 
     /**

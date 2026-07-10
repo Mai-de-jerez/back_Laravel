@@ -44,44 +44,45 @@ class UserService
      * @param array $datosRelacion parametro que pasa los datos de la relación paciente/médico
      * @return User retorna el usuario actualizado con sus relaciones medico y paciente
      */
-    public function actualizarPerfil(int $userId, array $datosUsuario, ?UploadedFile $foto = null, array $datosRelacion = []): User
-    {
-        // Buscamos al usuario 
-        return DB::transaction(function () use ($userId, $datosUsuario, $foto, $datosRelacion) {
-            
-            $user = User::find($userId);
 
+
+    public function actualizarPerfil(int $userId, array $datosUsuario, ?UploadedFile $foto = null): User
+    {
+        return DB::transaction(function () use ($userId, $datosUsuario, $foto) {
+
+            $user = User::find($userId);
             if (!$user) {
                 throw new NotFoundHttpException('Usuario no encontrado');
             }
 
-            // Si la contraseña viene, la encriptamos, si no, la eliminamos del array para que no se actualice
             if (!empty($datosUsuario['password'])) {
                 $datosUsuario['password'] = bcrypt($datosUsuario['password']);
             } else {
                 unset($datosUsuario['password']);
             }
 
-            // si la foto viene, usamos el FileUploadService para actualizarla y obtener la nueva ruta
             if ($foto) {
                 $rutaAnterior = $user->foto;
                 $datosUsuario['foto'] = $this->fileUploadService->actualizarFoto($foto, $rutaAnterior);
             }
 
-            // Actualizar tabla 'usuarios'
+            // Separar campos específicos de paciente (solo si vinieron en la petición)
+            $datosRelacion = [];
+            foreach (['numero_tarjeta', 'compania'] as $campo) {
+                if (array_key_exists($campo, $datosUsuario)) {
+                    $datosRelacion[$campo] = $datosUsuario[$campo];
+                    unset($datosUsuario[$campo]);
+                }
+            }
+
             $user->update($datosUsuario);
 
-            // Actualizar tabla 'pacientes' (solo si vienen datos)
-            if (!empty($datosRelacion)) {
-                // Si el usuario tiene relación con paciente, actualizamos
-                if ($user->paciente) {
-                    $user->paciente->update($datosRelacion);
-                }
+            if (!empty($datosRelacion) && $user->paciente) {
+                $user->paciente->update($datosRelacion);
             }
 
             $user->load(['medico', 'paciente']);
             return $user;
-            
         });
     }
 
@@ -158,6 +159,7 @@ class UserService
         });
     }
 
+
     /**
      * Actualizar un usuario (admin)
      * @param int $userId parametro que pasa el id del usuario a actualizar
@@ -188,28 +190,34 @@ class UserService
                 $datos['foto'] = $this->fileUploadService->actualizarFoto($foto, $rutaAnterior);
             }
 
-            // Actualizar tabla 'usuarios'
+            // Actualizar tabla 'usuarios' (SIN 'rol')
             $user->update($datos);
 
-            // Actualizar relación según rol (si viene)
-            if (isset($datos['rol'])) {
-                // Si es paciente y viene con datos de paciente
-                if ($datos['rol'] === 'paciente' && isset($datos['numero_tarjeta'], $datos['compania'])) {
+            // Si el usuario es paciente, actualizar sus datos de paciente
+            if ($user->esPaciente()) {
+                // verificamos que la compañia y el número de tarjeta estén presentes en los datos
+                if (isset($datos['numero_tarjeta']) || isset($datos['compania'])) {
                     if ($user->paciente) {
                         $user->paciente->update([
-                            'numero_tarjeta' => $datos['numero_tarjeta'],
-                            'compania' => $datos['compania'],
+                            'numero_tarjeta' => $datos['numero_tarjeta'] ?? $user->paciente->numero_tarjeta,
+                            'compania' => $datos['compania'] ?? $user->paciente->compania,
                         ]);
+                    } else {
+                        Log::warning('Usuario paciente sin relación paciente', ['user_id' => $user->id]);
                     }
                 }
+            }
 
-                // Si es médico y viene con datos de médico
-                if ($datos['rol'] === 'medico' && isset($datos['numero_colegiado'], $datos['id_especialidad'])) {
+            // si el usuario es médico, actualizar sus datos de médico
+            if ($user->esMedico()) {
+                if (isset($datos['numero_colegiado'])) {
                     if ($user->medico) {
                         $user->medico->update([
                             'numero_colegiado' => $datos['numero_colegiado'],
-                            'id_especialidad' => $datos['id_especialidad'],
+                            'id_especialidad' => $datos['id_especialidad'] ?? $user->medico->id_especialidad,
                         ]);
+                    } else {
+                        Log::warning('Usuario médico sin relación médico', ['user_id' => $user->id]);
                     }
                 }
             }

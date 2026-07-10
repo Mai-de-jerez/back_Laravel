@@ -57,7 +57,7 @@ class AuthController extends Controller
     public function recuperarPassword(Request $request): JsonResponse
     {
         $datos = $request->validate([
-            'email' => 'required|email'
+            'email' => 'required|email'// no validamos que el email exista en la base de datos para no dar pistas a un atacante
         ]);
 
         $this->authService->recuperarPassword($datos['email']);
@@ -69,7 +69,7 @@ class AuthController extends Controller
     {
         $datosValidados = $request->validate([
             'token'    => 'required|string',
-            'email'    => 'required|email',
+            'email'    => 'required|email',// no validamos que el email exista en la base de datos para no dar pistas a un atacante
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
 
