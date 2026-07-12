@@ -9,6 +9,7 @@ use App\Http\Requests\ActualizarPerfilRequest;
 use App\Http\Requests\ActualizarUsuarioRequest;
 use App\Http\Requests\CrearUsuarioRequest;
 use App\Services\UserService;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -33,6 +34,7 @@ class UserController extends Controller
 
     public function actualizar(ActualizarPerfilRequest $request): JsonResponse
     {
+
         $usuario = $request->user();
         $datosUsuario = $request->validated();
         $foto = $request->file('foto');

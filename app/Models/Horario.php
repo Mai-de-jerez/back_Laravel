@@ -27,8 +27,8 @@ class Horario extends Model
     {
         return [
             'dia_semana'  => DiaSemana::class,  
-            'hora_inicio' => 'datetime:H:i',
-            'hora_fin'    => 'datetime:H:i',
+            'hora_inicio' => 'datetime:H:i',  
+            'hora_fin' => 'datetime:H:i', 
         ];
     }
 

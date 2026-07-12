@@ -48,24 +48,12 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['mensaje' => 'No autenticado'], 401);
         });
 
-        // $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
-        //     return response()->json(['mensaje' => 'Token expirado'], 401);
-        // });
-
-        // $exceptions->render(function (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
-        //     return response()->json(['mensaje' => 'Token inválido'], 401);
-        // });
-
-        // $exceptions->render(function (\Tymon\JWTAuth\Exceptions\JWTException $e) {
-        //     return response()->json(['mensaje' => 'Token no proporcionado'], 401);
-        // });
-
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException $e) {
             return response()->json(['mensaje' => 'Token no proporcionado'], 401);
         });
 
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
-            return response()->json(['mensaje' => 'Recurso no encontrado'], 404);
+            return response()->json(['mensaje' => $e->getMessage() ?: 'Recurso no encontrado'], 404);
         });
 
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
