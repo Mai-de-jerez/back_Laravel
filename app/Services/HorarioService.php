@@ -5,9 +5,13 @@ namespace App\Services;
 use App\Models\Horario;
 use App\Models\Medico;
 use App\Enums\DiaSemana;
+use App\Models\Cita;
+use App\Enums\EstadoCita;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
 
 class HorarioService
 {
@@ -140,24 +144,39 @@ class HorarioService
     }
 
     /**
-     * Eliminar un horario
+     * Eliminar un horario.
+     * Solo permite borrar si el médico NO tiene citas activas
+     * asociadas a ese horario (mismo día de la semana + dentro del rango de horas).
      */
-    public function eliminarHorario(int $horarioId, int $medicoId): void
+    public function eliminarHorario(int $horarioId): void
     {
-        $horario = Horario::where('id', $horarioId)
-            ->where('id_medico', $medicoId)
-            ->first();
+        $horario = Horario::find($horarioId);
 
         if (!$horario) {
             throw new NotFoundHttpException('Horario no encontrado');
         }
 
         DB::transaction(function () use ($horario) {
+            $tieneCitas = Cita::where('id_medico', $horario->id_medico)
+                ->where('estado', EstadoCita::ACTIVA)
+                ->where('fecha', '>=', now()->toDateString())
+                ->whereRaw('DAYOFWEEK(fecha) = ?', [$horario->dia_semana->numeroMysql()])
+                ->whereTime('hora', '>=', $horario->hora_inicio->format('H:i'))
+                ->whereTime('hora', '<', $horario->hora_fin->format('H:i'))
+                ->lockForUpdate()
+                ->exists();
+
+            if ($tieneCitas) {
+                throw new UnprocessableEntityHttpException(
+                    'No se puede eliminar el horario porque existen citas activas programadas en esta franja.'
+                );
+            }
+
             $horario->delete();
 
             Log::info('Horario eliminado', [
                 'horario_id' => $horario->id,
-                'medico_id' => $horario->id_medico,
+                'medico_id'  => $horario->id_medico,
             ]);
         });
     }

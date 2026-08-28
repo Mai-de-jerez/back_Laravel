@@ -5,9 +5,10 @@ namespace App\Http\Controllers;
 use App\Services\AuthService;
 use App\Http\Resources\UserProfileResource;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;  
+use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rules\Password;
 use App\Http\Requests\RegisterRequest;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -19,6 +20,11 @@ class AuthController extends Controller
         $foto = $request->file('foto');
 
         $resultado = $this->authService->register($datos, $foto);
+
+        Log::info('Usuario registrado', [
+            'usuario_id' => $resultado['usuario']->id,
+            'email' => $resultado['usuario']->email,
+        ]);
 
         return response()->json([
             'mensaje' => 'Usuario registrado correctamente',

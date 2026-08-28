@@ -5,7 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\EspecialidadController;
 use App\Http\Controllers\HorarioController;
-
+use App\Http\Controllers\CitaController;
 
 // Rutas públicas
 Route::post('/register', [AuthController::class, 'register']);
@@ -31,6 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/horarios', [HorarioController::class, 'crearHorario']);
         Route::put('/horarios/{id}', [HorarioController::class, 'update']);
         Route::delete('/horarios/{id}', [HorarioController::class, 'destroy']);
+        Route::post('/citas', [CitaController::class, 'store']);
+        Route::get('/citas', [CitaController::class, 'index']);
     });
 });
 

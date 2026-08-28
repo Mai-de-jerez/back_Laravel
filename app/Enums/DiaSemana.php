@@ -35,4 +35,38 @@ enum DiaSemana: string
             self::DOMINGO => 'Domingo',
         };
     }
+
+    /**
+     * Equivalente numérico de MySQL DAYOFWEEK(): 1=domingo, 2=lunes ... 7=sabado.
+     * Confirmado con DAYOFWEEK(NOW())=2 en lunes....
+     */
+    public function numeroMysql(): int
+    {
+        return match($this) {
+            self::DOMINGO => 1,
+            self::LUNES => 2,
+            self::MARTES => 3,
+            self::MIERCOLES => 4,
+            self::JUEVES => 5,
+            self::VIERNES => 6,
+            self::SABADO => 7,
+        };
+    }
+
+    /**
+     * Traduce una fecha concreta a su DiaSemana correspondiente.
+     * isoWeekday(): 1=lunes ... 7=domingo (coincide con el orden de los cases).
+     */
+    public static function fromFecha(\Carbon\Carbon $fecha): self
+    {
+        return match($fecha->isoWeekday()) {
+            1 => self::LUNES,
+            2 => self::MARTES,
+            3 => self::MIERCOLES,
+            4 => self::JUEVES,
+            5 => self::VIERNES,
+            6 => self::SABADO,
+            7 => self::DOMINGO,
+        };
+    }
 }

@@ -16,9 +16,9 @@ class EspecialidadController extends Controller
     public function index(): JsonResponse
     {
         $especialidades = $this->especialidadService->listar();
-        
-        return response()->json(
-            EspecialidadResource::collection($especialidades)
-        );
+
+        return response()->json([
+            'especialidades' => EspecialidadResource::collection($especialidades)
+        ], 200);
     }
 }

@@ -3,13 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Services\HorarioService;
-use App\Enums\DiaSemana;
 use App\Http\Resources\HorarioResource;
 use App\Http\Requests\StoreHorarioRequest;
 use App\Http\Requests\UpdateHorarioRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class HorarioController extends Controller
 {
@@ -120,18 +119,13 @@ class HorarioController extends Controller
     /**
      * Eliminar un horario
      */
-    public function destroy(Request $request, int $id): JsonResponse
+    public function destroy(int $id): JsonResponse
     {
         try {
-            $this->horarioService->eliminarHorario(
-                $id,
-                $request->user()->medico->id 
-            );
+            $this->horarioService->eliminarHorario($id);
 
-            return response()->json([
-                'mensaje' => 'Horario eliminado correctamente',
-            ], 200);
-        } catch (\Exception $e) {
+            return response()->json(['mensaje' => 'Horario eliminado correctamente'], 200);
+        } catch (UnprocessableEntityHttpException $e) {
             return response()->json(['mensaje' => $e->getMessage()], 422);
         }
     }

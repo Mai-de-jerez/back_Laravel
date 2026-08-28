@@ -22,15 +22,15 @@ class UserController extends Controller
     public function perfil(Request $request): JsonResponse
     {
         $usuario = $this->userService->obtenerConPerfil($request->user()->id);
-        
+
         return response()->json([
             'usuario' => new UserProfileResource($usuario)
-        ], 200); 
+        ], 200);
     }
 
     /**
      * Endpoint para actualizar el perfil del usuario autenticado.
-     */   
+     */
 
     public function actualizar(ActualizarPerfilRequest $request): JsonResponse
     {
@@ -46,12 +46,17 @@ class UserController extends Controller
             $foto
         );
 
+        Log::info('Perfil actualizado por el propio usuario', [
+            'user_id' => $usuario->id,
+            'campos_actualizados' => array_keys($datosUsuario),
+        ]);
+
         return response()->json([
             'mensaje' => 'Perfil actualizado correctamente',
             'usuario' => new UserProfileResource($usuarioActualizado)
         ], 200);
     }
-    
+
 
     /**
      * Listar usuarios (solo admin)
@@ -59,9 +64,9 @@ class UserController extends Controller
     public function listarUsuarios(Request $request): JsonResponse
     {
         $filtros = $request->only(['id','rol', 'nombre', 'apellidos']);
-        
+
         $usuarios = $this->userService->listarUsuarios($filtros);
-        
+
         return response()->json($usuarios, 200);
     }
 
@@ -71,7 +76,7 @@ class UserController extends Controller
     public function mostrarUsuario(int $id): JsonResponse
     {
         $usuario = $this->userService->obtenerConPerfil($id);
-        
+
         return response()->json([
             'usuario' => new UserProfileResource($usuario)
         ], 200);
@@ -86,6 +91,12 @@ class UserController extends Controller
             $request->validated(),
             $request->file('foto')
         );
+
+        Log::info('Usuario creado por admin', [
+            'admin_id' => $request->user()->id,
+            'usuario_creado_id' => $usuario->id,
+            'rol' => $usuario->rol->value,
+        ]);
 
         return response()->json([
             'mensaje' => 'Usuario creado correctamente',
@@ -104,6 +115,13 @@ class UserController extends Controller
             $datosUsuario,
             $request->file('foto')
         );
+
+        Log::info('Usuario actualizado por admin', [
+            'admin_id' => $request->user()->id,
+            'usuario_actualizado_id' => $id,
+            'campos_actualizados' => array_keys($datosUsuario),
+        ]);
+
         return response()->json([
             'mensaje' => 'Usuario actualizado correctamente',
             'usuario' => new UserProfileResource($usuario)

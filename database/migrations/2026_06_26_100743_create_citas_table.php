@@ -20,7 +20,7 @@ return new class extends Migration
             $table->date('fecha');
             $table->time('hora');
             $table->enum('estado', array_column(EstadoCita::cases(), 'value'))
-                  ->default('pendiente');
+                  ->default('activa');
             $table->text('motivo')->nullable();
             $table->text('notas')->nullable();
             $table->timestamp('fecha_creacion')->nullable();

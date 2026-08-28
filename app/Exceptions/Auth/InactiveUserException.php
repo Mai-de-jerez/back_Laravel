@@ -4,10 +4,11 @@ namespace App\Exceptions\Auth;
 
 use Exception;
 
+
 class InactiveUserException extends Exception
 {
-    public function __construct()
+    public function __construct(string $mensaje = 'Usuario inactivo')
     {
-        parent::__construct('Usuario inactivo', 403);
+        parent::__construct($mensaje, 403);
     }
 }
