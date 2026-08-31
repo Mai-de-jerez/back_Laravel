@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Horario;
 use App\Services\HorarioService;
 use App\Http\Resources\HorarioResource;
-use App\Http\Requests\StoreHorarioRequest;
-use App\Http\Requests\UpdateHorarioRequest;
+use App\Http\Requests\CrearHorarioRequest;
+use App\Http\Requests\ActualizarHorarioRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class HorarioController extends Controller
@@ -47,7 +49,7 @@ class HorarioController extends Controller
      * Admin: ver todos los horarios
      */
 
-    public function listarTodos(): JsonResponse
+    public function listarHorarios(): JsonResponse
     {
         $horarios = $this->horarioService->obtenerTodosLosHorarios();
 
@@ -59,17 +61,8 @@ class HorarioController extends Controller
     /**
      * Admin: ver detalle de un horario
      */
-
-    public function mostrar(int $id): JsonResponse
+    public function mostrarHorario(Horario $horario): JsonResponse
     {
-        $horario = $this->horarioService->obtenerHorarioPorId($id);
-
-        if (!$horario) {
-            return response()->json([
-                'mensaje' => 'Horario no encontrado'
-            ], 404);
-        }
-
         return response()->json([
             'horario' => new HorarioResource($horario)
         ], 200);
@@ -78,55 +71,56 @@ class HorarioController extends Controller
     /**
      * Crear un horario
      */
-    public function crearHorario(StoreHorarioRequest $request): JsonResponse  
+    public function crearHorario(CrearHorarioRequest $request): JsonResponse  
     {
-        try {
-            $horario = $this->horarioService->crearHorario(
-                $request->id_medico,
-                $request->validated() 
-            );
- 
-            return response()->json([
-                'mensaje' => 'Horario creado correctamente',
-                'horario' => new HorarioResource($horario),
-            ], 201);
+        $horario = $this->horarioService->crearHorario(
+            $request->id_medico,
+            $request->validated() 
+        );
 
-        } catch (\InvalidArgumentException $e) {
-            return response()->json(['mensaje' => $e->getMessage()], 422);
-        }
+        Log::info('Horario creado por admin', [
+            'admin_id' => $request->user()->id,
+            'horario_id' => $horario->id,
+            'medico_id' => $horario->id_medico,
+        ]);
+        
+        return response()->json([
+            'mensaje' => 'Horario creado correctamente',
+            'horario' => new HorarioResource($horario),
+        ], 201);
     }
 
     /**
      * Actualizar un horario (solo admin)
-     */
-    public function update(UpdateHorarioRequest $request, int $id): JsonResponse 
+     */  
+    public function actualizarHorario(ActualizarHorarioRequest $request, Horario $horario): JsonResponse 
     {
-        try {
-            $horario = $this->horarioService->actualizarHorario(
-                $id,
-                $request->validated() 
-            );
+        $datosHorario = $request->validated();
 
-            return response()->json([
-                'mensaje' => 'Horario actualizado correctamente',
-                'horario' => new HorarioResource($horario),
-            ], 200);
-        } catch (\InvalidArgumentException $e) {
-            return response()->json(['mensaje' => $e->getMessage()], 422);
-        }
+        $horarioActualizado = $this->horarioService->actualizarHorario(
+            $horario, 
+            $datosHorario
+        );
+
+        Log::info('Horario actualizado por admin', [
+            'admin_id' => $request->user()->id,
+            'horario_actualizado_id' => $horario->id,
+            'campos_actualizados' => array_keys($datosHorario),
+        ]);
+
+        return response()->json([
+            'mensaje' => 'Horario actualizado correctamente',
+            'horario' => new HorarioResource($horarioActualizado),
+        ], 200);
     }
 
     /**
      * Eliminar un horario
      */
-    public function destroy(int $id): JsonResponse
+    public function eliminarHorario(Horario $horario): JsonResponse
     {
-        try {
-            $this->horarioService->eliminarHorario($id);
+        $this->horarioService->eliminarHorario($horario);
 
-            return response()->json(['mensaje' => 'Horario eliminado correctamente'], 200);
-        } catch (UnprocessableEntityHttpException $e) {
-            return response()->json(['mensaje' => $e->getMessage()], 422);
-        }
+        return response()->json(['mensaje' => 'Horario eliminado correctamente'], 200);
     }
 }

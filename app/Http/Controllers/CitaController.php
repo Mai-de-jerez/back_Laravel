@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Services\CitaService;
-use App\Http\Requests\StoreCitaRequest;
+use App\Models\Cita;
+use App\Models\Medico;
+use App\Http\Requests\CrearCitaRequest;
+use App\Http\Requests\ActualizarCitaRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Resources\CitaResource;
@@ -18,7 +21,7 @@ class CitaController extends Controller
      * @param Request $request
      * @return JsonResponse
      */
-    public function index(Request $request): JsonResponse
+    public function listarCitas(Request $request): JsonResponse
     {
         $filtros = $request->only(['id', 'id_medico', 'id_paciente', 'estado', 'fecha']);
 
@@ -33,30 +36,72 @@ class CitaController extends Controller
         ], 200);
     }
 
-    public function store(StoreCitaRequest $request): JsonResponse
+    /**
+     * Ver huecos disponibles de un médico en una fecha concreta
+     */
+    public function citasPorMedico(Medico $medico): JsonResponse
     {
-        try {
-            $cita = $this->citaService->crearCita($request->validated());
+        $resultado = $this->citaService->obtenerProximoDiaConHuecos($medico->id);
 
-            Log::info('Cita creada vía admin/controller', [
-                'admin_id' => $request->user()->id,
-                'cita_id' => $cita->id,
-                'id_medico' => $cita->id_medico,
-                'id_paciente' => $cita->id_paciente,
-            ]);
-
-            return response()->json([
-                'mensaje' => 'Cita creada correctamente',
-                'cita' => new CitaResource($cita),
-            ], 201);
-        } catch (\InvalidArgumentException $e) {
-            Log::warning('Intento fallido de crear cita', [
-                'admin_id' => $request->user()->id,
-                'motivo' => $e->getMessage(),
-                'datos' => $request->validated(),
-            ]);
-
-            return response()->json(['mensaje' => $e->getMessage()], 422);
-        }
+        return response()->json([
+            'medico' => [
+                'id' => $medico->id,
+                'nombre_completo' => $medico->usuario->nombre_completo ?? 'Médico',
+            ],
+            'fecha' => $resultado['fecha'],
+            'huecos_disponibles' => $resultado['huecos'],
+        ], 200);
     }
+    
+
+    /**
+     * Admin: Mostrar detalle de una cita
+     */
+    public function mostrarCita(Cita $cita): JsonResponse
+    {
+        return response()->json([
+            'cita' => new CitaResource($cita)
+        ], 200);
+    }
+
+    /**
+     * Crear una cita 
+     */
+    public function crearCita(CrearCitaRequest $request): JsonResponse
+    {
+        $cita = $this->citaService->crearCita($request->validated());
+
+        Log::info('Cita creada vía admin/controller', [
+            'admin_id' => $request->user()->id,
+            'cita_id' => $cita->id,
+            'id_medico' => $cita->id_medico,
+            'id_paciente' => $cita->id_paciente,
+        ]);
+
+        return response()->json([
+            'mensaje' => 'Cita creada correctamente',
+            'cita' => new CitaResource($cita),
+        ], 201);
+    }
+
+    /**
+     * Actualizar una cita
+     */
+    public function actualizarCita(ActualizarCitaRequest $request, Cita $cita): JsonResponse
+    {
+        $datosCita = $request->validated();
+        $citaActualizada = $this->citaService->actualizarCita($cita, $datosCita);
+
+        Log::info('Cita actualizada por admin', [
+            'admin_id' => $request->user()->id,
+            'cita_actualizada_id' => $cita->id,
+            'campos_actualizados' => array_keys($datosCita),
+        ]);
+
+        return response()->json([
+            'mensaje' => 'Cita actualizada correctamente',
+            'cita' => new CitaResource($citaActualizada),
+        ], 200);
+    }
+
 }

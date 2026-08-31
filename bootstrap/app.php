@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use App\Http\Middleware\AdminMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -53,10 +54,22 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+            if ($e->getPrevious() instanceof ModelNotFoundException) {
+                return response()->json(['mensaje' => 'Recurso no encontrado'], 404);
+            }
             return response()->json(['mensaje' => $e->getMessage() ?: 'Recurso no encontrado'], 404);
         });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException $e, Request $request) {
+                    return response()->json(['mensaje' => $e->getMessage()], 422);
+                });
 
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
             return response()->json(['mensaje' => 'Error de validación', 'errores' => $e->errors(),], 422);
         });
+
+        $exceptions->render(function (\InvalidArgumentException $e, Request $request) {
+            return response()->json(['mensaje' => $e->getMessage()], 422);
+        });        
+
     })->create();

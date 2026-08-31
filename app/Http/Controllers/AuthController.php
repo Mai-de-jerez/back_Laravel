@@ -7,19 +7,19 @@ use App\Http\Resources\UserProfileResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rules\Password;
-use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\RegistroRequest;
 use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     public function __construct(private AuthService $authService) {}
 
-    public function register(RegisterRequest $request): JsonResponse
+    public function registro(RegistroRequest $request): JsonResponse
     {
         $datos = $request->validated();
         $foto = $request->file('foto');
 
-        $resultado = $this->authService->register($datos, $foto);
+        $resultado = $this->authService->registro($datos, $foto);
 
         Log::info('Usuario registrado', [
             'usuario_id' => $resultado['usuario']->id,

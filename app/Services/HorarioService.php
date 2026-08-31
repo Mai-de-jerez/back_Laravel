@@ -11,14 +11,14 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Database\Eloquent\Collection;
 
 class HorarioService
 {
     /**
      * Obtener todos los horarios de un médico para que pueda verlos (médico)
      */
-    public function obtenerHorarioMedico(int $medicoId): \Illuminate\Database\Eloquent\Collection
+    public function obtenerHorarioMedico(int $medicoId): Collection
     {
         return Horario::where('id_medico', $medicoId)
             ->orderBy('dia_semana')
@@ -29,21 +29,13 @@ class HorarioService
     /**
      * Obtener todos los horarios (admin)
      */
-    public function obtenerTodosLosHorarios(): \Illuminate\Database\Eloquent\Collection
+    public function obtenerTodosLosHorarios(): Collection
     {
         return Horario::with('medico.usuario')
             ->orderBy('id_medico')
             ->orderBy('dia_semana')
             ->orderBy('hora_inicio')
             ->get();
-    }
-
-    /**
-     * Obtener un horario por ID (admin)
-     */
-    public function obtenerHorarioPorId(int $horarioId): ?Horario
-    {
-        return Horario::with('medico.usuario')->find($horarioId);
     }
 
     /**
@@ -99,16 +91,17 @@ class HorarioService
     }
 
     /**
-     * Actualizar un horario (solo el admin puede)
+     * Actualizar un horario con Route Model Binding
      */
-    public function actualizarHorario(int $horarioId, array $datos): Horario
+    public function actualizarHorario(Horario $horario, array $datos): Horario
     {
-        $horario = Horario::find($horarioId);
-
-        if (!$horario) {
-            throw new NotFoundHttpException('Horario no encontrado');
+        // Si intentan cambiar el médico, comprobamos que exista de verdad
+        if (isset($datos['id_medico']) && $datos['id_medico'] != $horario->id_medico) {
+            if (!\App\Models\Medico::where('id', $datos['id_medico'])->exists()) {
+                throw new NotFoundHttpException('Médico no encontrado');
+            }
         }
-
+        
         $dia = $datos['dia_semana'] ?? $horario->dia_semana->value;
         $horaInicio = $datos['hora_inicio'] ?? $horario->hora_inicio->format('H:i');
         $horaFin = $datos['hora_fin'] ?? $horario->hora_fin->format('H:i');
@@ -117,9 +110,12 @@ class HorarioService
             throw new \InvalidArgumentException('La hora de inicio debe ser menor que la hora de fin');
         }
 
-        return DB::transaction(function () use ($horario, $datos, $dia, $horaInicio, $horaFin) {
+        // Definimos aquí el ID del médico que vamos a usar en todo el proceso
+        $idMedicoAUsar = $datos['id_medico'] ?? $horario->id_medico;
+
+        return DB::transaction(function () use ($horario, $datos, $idMedicoAUsar, $dia, $horaInicio, $horaFin) {
             $solapa = $this->existeSolape(
-                $horario->id_medico,
+                $idMedicoAUsar,
                 $dia,
                 $horaInicio,
                 $horaFin,
@@ -144,18 +140,12 @@ class HorarioService
     }
 
     /**
-     * Eliminar un horario.
+     * Eliminar un horario con Route Model Binding.
      * Solo permite borrar si el médico NO tiene citas activas
      * asociadas a ese horario (mismo día de la semana + dentro del rango de horas).
      */
-    public function eliminarHorario(int $horarioId): void
+    public function eliminarHorario(Horario $horario): void
     {
-        $horario = Horario::find($horarioId);
-
-        if (!$horario) {
-            throw new NotFoundHttpException('Horario no encontrado');
-        }
-
         DB::transaction(function () use ($horario) {
             $tieneCitas = Cita::where('id_medico', $horario->id_medico)
                 ->where('estado', EstadoCita::ACTIVA)
@@ -184,13 +174,6 @@ class HorarioService
     /**
      * Comprueba si una franja horaria se solapa con otra ya existente
      * para ese médico y ese día.
-     *
-     * @param int $medicoId
-     * @param string $dia día de la semana (valor del enum DiaSemana)
-     * @param string $horaInicio formato H:i
-     * @param string $horaFin formato H:i
-     * @param int|null $excluirId id de horario a excluir (útil al actualizar, para no chocar consigo mismo)
-     * @param bool $bloquear si true, aplica lockForUpdate (solo tiene sentido dentro de una transacción)
      */
     private function existeSolape(
         int $medicoId,

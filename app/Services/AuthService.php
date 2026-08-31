@@ -21,7 +21,7 @@ class AuthService
         private FileUploadService $fileUploadService
     ) {}
 
-    public function register(array $datos, $foto = null): array
+    public function registro(array $datos, $foto = null): array
     {
         $rutaFoto = $foto
             ? $this->fileUploadService->subirFoto($foto)

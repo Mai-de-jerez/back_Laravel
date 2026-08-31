@@ -7,7 +7,7 @@ use Illuminate\Validation\Rule;
 use App\Enums\DiaSemana;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreHorarioRequest extends FormRequest
+class CrearHorarioRequest extends FormRequest
 {
     public function authorize(): bool
     {

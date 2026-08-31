@@ -7,7 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Enums\DiaSemana;
 
-class UpdateHorarioRequest extends FormRequest
+class ActualizarHorarioRequest extends FormRequest
 {
     /**
      * Determina si el usuario está autorizado para realizar esta solicitud.
@@ -20,6 +20,7 @@ class UpdateHorarioRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'id_medico' => ['sometimes', 'integer'],
             'dia_semana' => ['sometimes', 'required', Rule::in(DiaSemana::values())],
             'hora_inicio' => 'sometimes|required|date_format:H:i',
             'hora_fin' => 'sometimes|required|date_format:H:i|after:hora_inicio',
@@ -29,6 +30,7 @@ class UpdateHorarioRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'id_medico.integer' => 'El identificador del médico debe ser un número entero',
             'dia_semana.required' => 'El día de la semana es obligatorio',
             'dia_semana.in' => 'El día de la semana no es válido',
             'hora_inicio.required' => 'La hora de inicio es obligatoria',

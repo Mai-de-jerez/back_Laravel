@@ -56,6 +56,72 @@ class CitaService
         ];
     }
 
+        /**
+     * Busca el día más próximo (desde hoy) en el que el médico tenga
+     * al menos un hueco libre de 15 min, teniendo en cuenta su horario
+     * semanal y las citas activas ya reservadas.
+     *
+     * @param int $idMedico
+     * @param int $diasMaximoBusqueda Cuántos días hacia adelante busca antes de rendirse
+     * @return array ['fecha' => string|null, 'huecos' => array]
+     */
+    public function obtenerProximoDiaConHuecos(int $idMedico, int $diasMaximoBusqueda = 60): array
+    {
+        $fecha = Carbon::today();
+
+        for ($i = 0; $i <= $diasMaximoBusqueda; $i++) {
+
+            // 1. Ver si el médico trabaja ese día de la semana
+            $horarios = Horario::where('id_medico', $idMedico)
+                ->where('dia_semana', DiaSemana::fromFecha($fecha)->value)
+                ->get();
+
+            if ($horarios->isEmpty()) {
+                $fecha->addDay();
+                continue;
+            }
+
+            // 2. Sacar las citas ya ocupadas ese día
+            $citasOcupadas = Cita::where('id_medico', $idMedico)
+                ->where('fecha', $fecha->toDateString())
+                ->where('estado', EstadoCita::ACTIVA)
+                ->pluck('hora')
+                ->map(fn($h) => Carbon::parse($h)->format('H:i'))
+                ->toArray();
+
+            // 3. Trocear el horario en bloques de 15 min y descartar los ocupados
+            $huecos = [];
+
+            foreach ($horarios as $h) {
+                $inicio = Carbon::parse($h->hora_inicio);
+                $fin = Carbon::parse($h->hora_fin);
+
+                while ($inicio->copy()->addMinutes(15)->lte($fin)) {
+                    $horaF = $inicio->format('H:i');
+                    if (!in_array($horaF, $citasOcupadas)) {
+                        $huecos[] = $horaF;
+                    }
+                    $inicio->addMinutes(15);
+                }
+            }
+
+            sort($huecos);
+
+            // 4. Si este día tiene huecos, ya está, devolvemos
+            if (!empty($huecos)) {
+                return [
+                    'fecha' => $fecha->toDateString(),
+                    'huecos' => $huecos,
+                ];
+            }
+
+            // 5. Si no, probamos el día siguiente
+            $fecha->addDay();
+        }
+
+        return ['fecha' => null, 'huecos' => []];
+    }
+
     /**
      * Crear una cita.
      * Duración fija de 15 minutos.
@@ -116,7 +182,60 @@ class CitaService
 
             return $cita;
         });
-    }   
+    } 
+    
+    /**
+     * Actualizar una cita existente
+     */
+    public function actualizarCita(Cita $cita, array $datos): Cita
+    {
+        if (isset($datos['id_medico']) && $datos['id_medico'] != $cita->id_medico) {
+            if (!Medico::where('id', $datos['id_medico'])->exists()) {
+                throw new NotFoundHttpException('Médico no encontrado');
+            }
+        }
+
+        if (isset($datos['id_paciente']) && $datos['id_paciente'] != $cita->id_paciente) {
+            if (!Paciente::where('id', $datos['id_paciente'])->exists()) {
+                throw new NotFoundHttpException('Paciente no encontrado');
+            }
+        }
+
+        $medicoId = $datos['id_medico'] ?? $cita->id_medico;
+        $fecha = isset($datos['fecha']) ? Carbon::parse($datos['fecha']) : Carbon::parse($cita->fecha);
+        $horaInicio = $datos['hora'] ?? $cita->hora;
+        $horaFin = Carbon::parse($horaInicio)->addMinutes(15)->format('H:i');
+        $diaSemana = DiaSemana::fromFecha($fecha);
+
+        return DB::transaction(function () use ($cita, $datos, $medicoId, $fecha, $horaInicio, $horaFin, $diaSemana) {
+            
+            // Si cambian elementos de tiempo o médico, revalidamos disponibilidad y solapes
+            if (isset($datos['fecha']) || isset($datos['hora']) || isset($datos['id_medico'])) {
+                if (!$this->estaDentroDeHorario($medicoId, $diaSemana, $horaInicio, $horaFin)) {
+                    throw new \InvalidArgumentException(
+                        'El médico no tiene horario disponible en esa fecha y hora'
+                    );
+                }
+
+                if ($this->existeSolapeCita($medicoId, $fecha->toDateString(), $horaInicio, $horaFin, $cita->id, true)) {
+                    throw new \InvalidArgumentException(
+                        'El médico ya tiene otra cita activa en ese horario'
+                    );
+                }
+            }
+
+            $cita->update($datos);
+
+            Log::info('Cita actualizada', [
+                'cita_id' => $cita->id,
+                'medico_id' => $medicoId,
+                'datos_actualizados' => $datos,
+            ]);
+
+            return $cita;
+        });
+    }
+    
 
     /**
      * Comprueba si el médico tiene turno de trabajo que cubra la franja indicada.

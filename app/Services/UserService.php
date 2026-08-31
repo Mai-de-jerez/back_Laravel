@@ -31,10 +31,37 @@ class UserService
         $user = User::with(['medico', 'paciente'])->find($userId);
 
         if (!$user) {
+            Log::warning('Intento de consulta de perfil de usuario inexistente', ['user_id' => $userId]);
             throw new NotFoundHttpException('Usuario no encontrado');
         }
         return $user;
     }
+
+    /**
+     * Listar usuarios con filtros opcionales y paginación
+     * @param array $filtros parametro que pasa los filtros para listar usuarios
+     * @return array retorna un array con los usuarios filtrados y paginados
+     */
+    public function listarUsuarios(array $filtros = []): array
+    {
+        $paginator = User::query()
+            ->select(['id', 'nombre', 'apellidos', 'email', 'rol', 'activo', 'fecha_creacion', 'fecha_modificacion'])
+            ->when(!empty($filtros['id']), fn($q) => $q->where('id', $filtros['id']))
+            ->when(!empty($filtros['rol']), fn($q) => $q->where('rol', $filtros['rol']))
+            ->when(!empty($filtros['nombre']), fn($q) => $q->where('nombre', 'LIKE', $filtros['nombre'] . '%'))
+            ->when(!empty($filtros['apellidos']), fn($q) => $q->where('apellidos', 'LIKE', $filtros['apellidos'] . '%'))
+            ->latest('fecha_creacion')
+            ->paginate(15);
+
+        return [
+            'usuarios' => $paginator->items(),
+            'pagina_actual' => $paginator->currentPage(),
+            'ultima_pagina' => $paginator->lastPage(),
+            'por_pagina' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            ];
+    }
+
 
     /**
      * Actualizar perfil de usuario y sus relaciones con las tablas paciente/médico
@@ -44,8 +71,6 @@ class UserService
      * @param array $datosRelacion parametro que pasa los datos de la relación paciente/médico
      * @return User retorna el usuario actualizado con sus relaciones medico y paciente
      */
-
-
     public function actualizarPerfil(int $userId, array $datosUsuario, ?UploadedFile $foto = null): User
     {
         return DB::transaction(function () use ($userId, $datosUsuario, $foto) {
@@ -82,33 +107,10 @@ class UserService
             }
 
             $user->load(['medico', 'paciente']);
+
+            Log::info('Perfil de usuario actualizado', ['user_id' => $user->id]);
             return $user;
         });
-    }
-
-    /**
-     * Listar usuarios con filtros opcionales y paginación
-     * @param array $filtros parametro que pasa los filtros para listar usuarios
-     * @return array retorna un array con los usuarios filtrados y paginados
-     */
-    public function listarUsuarios(array $filtros = []): array
-    {
-        $paginator = User::query()
-            ->select(['id', 'nombre', 'apellidos', 'email', 'rol', 'activo', 'fecha_creacion', 'fecha_modificacion'])
-            ->when(!empty($filtros['id']), fn($q) => $q->where('id', $filtros['id']))
-            ->when(!empty($filtros['rol']), fn($q) => $q->where('rol', $filtros['rol']))
-            ->when(!empty($filtros['nombre']), fn($q) => $q->where('nombre', 'LIKE', $filtros['nombre'] . '%'))
-            ->when(!empty($filtros['apellidos']), fn($q) => $q->where('apellidos', 'LIKE', $filtros['apellidos'] . '%'))
-            ->latest('fecha_creacion')
-            ->paginate(15);
-
-        return [
-            'usuarios' => $paginator->items(),
-            'pagina_actual' => $paginator->currentPage(),
-            'ultima_pagina' => $paginator->lastPage(),
-            'por_pagina' => $paginator->perPage(),
-            'total' => $paginator->total(),
-            ];
     }
 
     
@@ -133,12 +135,12 @@ class UserService
                 'password' => Hash::make($datos['password']),
                 'telefono' => $datos['telefono'] ?? null,
                 'foto' => $rutaFoto,
-                'rol' => $datos['rol'],
+                'rol' => $datos['rol'], 
                 'activo' => true,
             ]);
 
-            // creamos la relación correspondiente según el rol del usuario
-            if ($datos['rol'] === 'medico') {
+            // creamos la relación correspondiente según el rol del usuario 
+            if ($usuario->esMedico()) { 
                 Medico::create([
                     'id_usuario' => $usuario->id,
                     'numero_colegiado' => $datos['numero_colegiado'],
@@ -146,7 +148,7 @@ class UserService
                 ]);
             }
 
-            if ($datos['rol'] === 'paciente') {
+            if ($usuario->esPaciente()) { 
                 Paciente::create([
                     'id_usuario' => $usuario->id,
                     'numero_tarjeta' => $datos['numero_tarjeta'],
@@ -155,27 +157,27 @@ class UserService
             }
 
             $usuario->load(['medico', 'paciente']);
+
+            Log::info('Usuario creado por admin', [ 
+                'admin_id' => auth()->id() ?? null,
+                'nuevo_usuario_id' => $usuario->id,
+                'rol' => $usuario->rol,
+            ]);
+
             return $usuario;
         });
     }
 
-
     /**
      * Actualizar un usuario (admin)
-     * @param int $userId parametro que pasa el id del usuario a actualizar
-     * @param array $datos parametro que pasa los datos del usuario a actualizar
-     * @param UploadedFile|null $foto parametro que pasa la foto del usuario a actualizar
-     * @return User retorna el usuario actualizado con sus relaciones medico y paciente
+     * @param User $user Modelo de usuario ya cargado (Route Model Binding)
+     * @param array $datos Datos a actualizar
+     * @param UploadedFile|null $foto Foto del usuario
+     * @return User Usuario actualizado con sus relaciones
      */
-    public function actualizarUsuario(int $userId, array $datos, ?UploadedFile $foto = null): User
+    public function actualizarUsuario(User $user, array $datos, ?UploadedFile $foto = null): User
     {
-        return DB::transaction(function () use ($userId, $datos, $foto) {
-            
-            $user = User::find($userId);
-
-            if (!$user) {
-                throw new NotFoundHttpException('Usuario no encontrado');
-            }
+        return DB::transaction(function () use ($user, $datos, $foto) {
 
             // Si la contraseña viene, la encriptamos
             if (!empty($datos['password'])) {
@@ -190,12 +192,11 @@ class UserService
                 $datos['foto'] = $this->fileUploadService->actualizarFoto($foto, $rutaAnterior);
             }
 
-            // Actualizar tabla 'usuarios' (SIN 'rol')
+            // Actualizar tabla 'usuarios'
             $user->update($datos);
 
             // Si el usuario es paciente, actualizar sus datos de paciente
             if ($user->esPaciente()) {
-                // verificamos que la compañia y el número de tarjeta estén presentes en los datos
                 if (isset($datos['numero_tarjeta']) || isset($datos['compania'])) {
                     if ($user->paciente) {
                         $user->paciente->update([
@@ -204,11 +205,12 @@ class UserService
                         ]);
                     } else {
                         Log::warning('Usuario paciente sin relación paciente', ['user_id' => $user->id]);
+                        throw new NotFoundHttpException('No se encontró el perfil de paciente asociado a este usuario.');
                     }
                 }
             }
 
-            // si el usuario es médico, actualizar sus datos de médico
+            // Si el usuario es médico, actualizar sus datos de médico
             if ($user->esMedico()) {
                 if (isset($datos['numero_colegiado'])) {
                     if ($user->medico) {
@@ -218,13 +220,32 @@ class UserService
                         ]);
                     } else {
                         Log::warning('Usuario médico sin relación médico', ['user_id' => $user->id]);
+                        throw new NotFoundHttpException('No se encontró el perfil de médico asociado a este usuario.');
                     }
                 }
             }
 
             $user->load(['medico', 'paciente']);
+
+            Log::info('Usuario actualizado por admin', [ // <-- AÑADIR AQUÍ
+                'usuario_actualizado_id' => $user->id,
+                'rol' => $user->rol,
+            ]);
+
             return $user;
         });
+    }
+
+    /**
+     * Dar de baja a un usuario en la DB
+     */
+    public function darDeBajaUsuario(User $usuario): User
+    {
+        $usuario->desactivar();
+
+        Log::info('Usuario dado de baja', ['usuario_id' => $usuario->id]);
+
+        return $usuario;
     }
 
     /**

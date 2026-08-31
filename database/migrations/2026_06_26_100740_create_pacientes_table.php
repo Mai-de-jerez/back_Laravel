@@ -17,7 +17,7 @@ return new class extends Migration
             // Relación limpia con tu tabla usuarios
             $table->foreignId('id_usuario')
                   ->constrained('usuarios')
-                  ->onDelete('cascade');
+                  ->onDelete('restrict');
             
             // Campos específicos del paciente
             $table->string('numero_tarjeta');

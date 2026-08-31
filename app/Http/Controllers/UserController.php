@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User; 
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\UserProfileResource;
@@ -18,7 +19,6 @@ class UserController extends Controller
     /**
      * Endpoint para obtener el perfil del usuario autenticado con sus relaciones.
      */
-
     public function perfil(Request $request): JsonResponse
     {
         $usuario = $this->userService->obtenerConPerfil($request->user()->id);
@@ -31,10 +31,8 @@ class UserController extends Controller
     /**
      * Endpoint para actualizar el perfil del usuario autenticado.
      */
-
     public function actualizar(ActualizarPerfilRequest $request): JsonResponse
     {
-
         $usuario = $request->user();
         $datosUsuario = $request->validated();
         $foto = $request->file('foto');
@@ -57,13 +55,12 @@ class UserController extends Controller
         ], 200);
     }
 
-
     /**
      * Listar usuarios (solo admin)
      */
     public function listarUsuarios(Request $request): JsonResponse
     {
-        $filtros = $request->only(['id','rol', 'nombre', 'apellidos']);
+        $filtros = $request->only(['id', 'rol', 'nombre', 'apellidos']);
 
         $usuarios = $this->userService->listarUsuarios($filtros);
 
@@ -73,9 +70,10 @@ class UserController extends Controller
     /**
      * Obtener detalle de un usuario por ID (solo admin)
      */
-    public function mostrarUsuario(int $id): JsonResponse
+    public function mostrarUsuario(User $usuario): JsonResponse
+                              
     {
-        $usuario = $this->userService->obtenerConPerfil($id);
+        $usuario->load(['paciente', 'medico']); 
 
         return response()->json([
             'usuario' => new UserProfileResource($usuario)
@@ -104,27 +102,45 @@ class UserController extends Controller
         ], 201);
     }
 
-
-    public function actualizarUsuario(ActualizarUsuarioRequest $request, int $id): JsonResponse
+    /**
+     * Actualizar un usuario (admin)
+     */
+    public function actualizarUsuario(ActualizarUsuarioRequest $request, User $usuario): JsonResponse                                                              
     {
         $datosUsuario = $request->validated();
+        $foto = $request->file('foto');
         unset($datosUsuario['foto']);
 
-        $usuario = $this->userService->actualizarUsuario(
-            $id,
+        $usuarioActualizado = $this->userService->actualizarUsuario(
+            $usuario,  
             $datosUsuario,
-            $request->file('foto')
+            $foto
         );
 
         Log::info('Usuario actualizado por admin', [
             'admin_id' => $request->user()->id,
-            'usuario_actualizado_id' => $id,
+            'usuario_actualizado_id' => $usuario->id,
             'campos_actualizados' => array_keys($datosUsuario),
         ]);
 
         return response()->json([
             'mensaje' => 'Usuario actualizado correctamente',
-            'usuario' => new UserProfileResource($usuario)
+            'usuario' => new UserProfileResource($usuarioActualizado)
+        ], 200);
+    }
+
+    /**
+     * Dar de baja a un usuario (admin)
+     */
+    public function darDeBajaUsuario(Request $request, User $usuario): JsonResponse
+    {
+        $usuarioActualizado = $this->userService->darDeBajaUsuario($usuario);
+
+        return response()->json([
+            'mensaje' => 'Usuario dado de baja correctamente',
+            'usuario' => new UserProfileResource($usuarioActualizado),
         ], 200);
     }
 }
+
+

@@ -21,14 +21,27 @@ class ActualizarUsuarioRequest extends FormRequest
      * Obtiene las reglas de validación que se aplican a la solicitud.
      * @return array<string, ValidationRule|array<mixed>|string>
      */
-
     public function rules(): array
     {
-        $userId = $this->route('id');
-        $user = User::find($userId);
+        $user = $this->route('usuario');
+        
+        if (!$user) {
+            return [
+                'nombre' => 'sometimes|required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
+                'apellidos' => 'sometimes|required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
+                'email' => 'sometimes|required|email|unique:usuarios,email',
+                'telefono' => 'nullable|string|max:20',
+                'foto' => 'nullable|image|max:2048',
+                'password' => ['sometimes', 'required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
+                'activo' => 'sometimes|required|boolean',
+                'rol' => 'prohibited',
+            ];
+        }
+
+        $userId = $user->id;
 
         $rules = [
-            'nombre' => 'sometimes|required|string|min:3|max:100|regex:/^[\pL\s]+$/u', 
+            'nombre' => 'sometimes|required|string|min:3|max:100|regex:/^[\pL\s]+$/u',
             'apellidos' => 'sometimes|required|string|min:3|max:150|regex:/^[\pL\s]+$/u',
             'email' => 'sometimes|required|email|unique:usuarios,email,' . $userId,
             'telefono' => 'nullable|string|max:20',
@@ -39,21 +52,19 @@ class ActualizarUsuarioRequest extends FormRequest
         ];
 
         // solo validamos campos de médico si el usuario es médico
-        if ($user && $user->esMedico()) {
+        if ($user->esMedico()) {
             $rules['numero_colegiado'] = 'sometimes|required|string|unique:medicos,numero_colegiado,' . $userId . ',id_usuario';
             $rules['id_especialidad'] = 'sometimes|required|exists:especialidades,id';
         } else {
-            // Si no eres médico, estos campos no están permitidos
             $rules['numero_colegiado'] = 'prohibited';
             $rules['id_especialidad'] = 'prohibited';
         }
 
         // solo validamos campos de paciente si el usuario es paciente
-        if ($user && $user->esPaciente()) {
+        if ($user->esPaciente()) {
             $rules['numero_tarjeta'] = 'sometimes|required|digits:16';
             $rules['compania'] = 'sometimes|required|string|min:3|max:100';
         } else {
-            // Si no eres paciente, estos campos no están permitidos
             $rules['numero_tarjeta'] = 'prohibited';
             $rules['compania'] = 'prohibited';
         }
