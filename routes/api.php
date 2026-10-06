@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/especialidades/{especialidad}/medicos', [EspecialidadController::class, 'listarMedicosPorEspecialidad']);
     Route::get('/medicos/{medico}/citas', [CitaController::class, 'citasPorMedico']);
     Route::get('/mis-horarios', [HorarioController::class, 'misHorarios']);
+    Route::get('/mis-citas', [CitaController::class, 'misCitas']); 
 
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         // Usuarios

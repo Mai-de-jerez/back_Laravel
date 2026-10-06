@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Cita;
 use App\Models\Horario;
 use App\Models\Medico;
+use App\Models\User;
 use App\Models\Paciente;
 use App\Enums\DiaSemana;
 use App\Enums\EstadoCita;
@@ -56,7 +57,8 @@ class CitaService
         ];
     }
 
-        /**
+
+    /**
      * Busca el día más próximo (desde hoy) en el que el médico tenga
      * al menos un hueco libre de 15 min, teniendo en cuenta su horario
      * semanal y las citas activas ya reservadas.
@@ -67,21 +69,29 @@ class CitaService
      */
     public function obtenerProximoDiaConHuecos(int $idMedico, int $diasMaximoBusqueda = 60): array
     {
+        // Traemos TODOS los horarios del médico una sola vez (antes: 1 query por día)
+        $horariosDelMedico = Horario::where('id_medico', $idMedico)->get();
+
+        if ($horariosDelMedico->isEmpty()) {
+            return ['fecha' => null, 'huecos' => []];
+        }
+
         $fecha = Carbon::today();
 
         for ($i = 0; $i <= $diasMaximoBusqueda; $i++) {
 
-            // 1. Ver si el médico trabaja ese día de la semana
-            $horarios = Horario::where('id_medico', $idMedico)
-                ->where('dia_semana', DiaSemana::fromFecha($fecha)->value)
-                ->get();
+            // 1. Filtrar en PHP (sin query) los horarios que aplican a este día de la semana
+            $diaSemanaHoy = DiaSemana::fromFecha($fecha)->value;
+            $horarios = $horariosDelMedico->filter(
+                fn($h) => $h->dia_semana->value === $diaSemanaHoy
+            );
 
             if ($horarios->isEmpty()) {
                 $fecha->addDay();
                 continue;
             }
 
-            // 2. Sacar las citas ya ocupadas ese día
+            // 2. Sacar las citas ya ocupadas ese día (esto sí debe ser por día, cambia cada vez)
             $citasOcupadas = Cita::where('id_medico', $idMedico)
                 ->where('fecha', $fecha->toDateString())
                 ->where('estado', EstadoCita::ACTIVA)
@@ -120,6 +130,22 @@ class CitaService
         }
 
         return ['fecha' => null, 'huecos' => []];
+    }
+
+    /**
+     * Obtener las citas del usuario logueado (médico o paciente)
+     */
+    public function obtenerMisCitas(User $usuario, array $filtros = []): array
+    {
+        if ($usuario->medico) {
+            $filtros['id_medico'] = $usuario->medico->id;
+        } elseif ($usuario->paciente) {
+            $filtros['id_paciente'] = $usuario->paciente->id;
+        } else {
+            throw new NotFoundHttpException('El usuario no tiene un perfil asociado para consultar citas');
+        }
+
+        return $this->obtenerTodasLasCitas($filtros);
     }
 
     /**
@@ -235,6 +261,8 @@ class CitaService
             return $cita;
         });
     }
+
+    
     
 
     /**
@@ -255,6 +283,8 @@ class CitaService
 
     /**
      * Comprueba si una cita se solapa con otra ya existente para ese médico y esa fecha.
+     * Solape bidireccional: la nueva cita y la existente se pisan si el inicio de una
+     * es anterior al fin de la otra, en ambos sentidos.
      */
     private function existeSolapeCita(
         int $medicoId,
@@ -268,7 +298,7 @@ class CitaService
             ->where('fecha', $fecha)
             ->where('estado', EstadoCita::ACTIVA)
             ->where('hora', '<', $horaFin)
-            ->where('hora', '>=', $horaInicio);
+            ->whereRaw("ADDTIME(hora, '00:15:00') > ?", [$horaInicio]);
 
         // Si estamos editando, ignoramos la propia cita que estamos modificando
         if ($excluirCitaId !== null) {

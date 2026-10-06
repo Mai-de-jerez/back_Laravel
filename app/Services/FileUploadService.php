@@ -85,12 +85,11 @@ class FileUploadService
 
     public function obtenerUrl(?string $ruta): string
     {
-        // Si la ruta viene vacía o nula, le asignamos la de por defecto
         if (empty($ruta)) {
             $ruta = $this->getFotoDefault();
         }
 
-        return Storage::disk('public')->url($ruta);
+        return asset('storage/' . $ruta);
     }
 
     /**

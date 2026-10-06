@@ -104,4 +104,23 @@ class CitaController extends Controller
         ], 200);
     }
 
+    /**
+     * Endpoint único para obtener las citas del usuario logueado (Médico o Paciente)
+     */
+    public function misCitas(Request $request): JsonResponse
+    {
+        $resultado = $this->citaService->obtenerMisCitas(
+            $request->user(),
+            $request->only(['fecha', 'estado', 'por_pagina'])
+        );
+
+        return response()->json([
+            'citas'          => CitaResource::collection($resultado['citas']),
+            'pagina_actual'  => $resultado['pagina_actual'],
+            'ultima_pagina'  => $resultado['ultima_pagina'],
+            'por_pagina'     => $resultado['por_pagina'],
+            'total'          => $resultado['total'],
+        ], 200);
+    }
+
 }

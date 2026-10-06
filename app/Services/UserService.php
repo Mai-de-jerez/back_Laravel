@@ -5,10 +5,10 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\Medico;              
 use App\Models\Paciente; 
-use App\Enums\RolUsuario;
 use App\Services\FileUploadService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Illuminate\Support\Facades\Hash; 
@@ -68,7 +68,6 @@ class UserService
      * @param int $userId parametro que pasa el id del susodicho
      * @param array $datosUsuario parametro que pasa los datos del usuario a actualizar
      * @param UploadedFile|null $foto parametro que pasa la foto del usuario a actualizar
-     * @param array $datosRelacion parametro que pasa los datos de la relación paciente/médico
      * @return User retorna el usuario actualizado con sus relaciones medico y paciente
      */
     public function actualizarPerfil(int $userId, array $datosUsuario, ?UploadedFile $foto = null): User
@@ -81,7 +80,7 @@ class UserService
             }
 
             if (!empty($datosUsuario['password'])) {
-                $datosUsuario['password'] = bcrypt($datosUsuario['password']);
+                $datosUsuario['password'] = Hash::make($datosUsuario['password']);
             } else {
                 unset($datosUsuario['password']);
             }
@@ -126,46 +125,62 @@ class UserService
             ? $this->fileUploadService->subirFoto($foto)
             : $this->fileUploadService->getFotoDefault();
 
-        return DB::transaction(function () use ($datos, $rutaFoto) {
-            
-            $usuario = User::create([
-                'nombre' => $datos['nombre'],
-                'apellidos' => $datos['apellidos'],
-                'email' => $datos['email'],
-                'password' => Hash::make($datos['password']),
-                'telefono' => $datos['telefono'] ?? null,
-                'foto' => $rutaFoto,
-                'rol' => $datos['rol'], 
-                'activo' => true,
-            ]);
+        try {
+            return DB::transaction(function () use ($datos, $rutaFoto) {
+                
+                $usuario = User::create([
+                    'nombre' => $datos['nombre'],
+                    'apellidos' => $datos['apellidos'],
+                    'email' => $datos['email'],
+                    'password' => Hash::make($datos['password']),
+                    'telefono' => $datos['telefono'] ?? null,
+                    'foto' => $rutaFoto,
+                    'rol' => $datos['rol'], 
+                    'activo' => true,
+                ]);
 
-            // creamos la relación correspondiente según el rol del usuario 
-            if ($usuario->esMedico()) { 
-                Medico::create([
-                    'id_usuario' => $usuario->id,
-                    'numero_colegiado' => $datos['numero_colegiado'],
-                    'id_especialidad' => $datos['id_especialidad'],
+                // creamos la relación correspondiente según el rol del usuario 
+                if ($usuario->esMedico()) { 
+                    Medico::create([
+                        'id_usuario' => $usuario->id,
+                        'numero_colegiado' => $datos['numero_colegiado'],
+                        'id_especialidad' => $datos['id_especialidad'],
+                    ]);
+                }
+
+                if ($usuario->esPaciente()) { 
+                    Paciente::create([
+                        'id_usuario' => $usuario->id,
+                        'numero_tarjeta' => $datos['numero_tarjeta'],
+                        'compania' => $datos['compania'],
+                    ]);
+                }
+
+                $usuario->load(['medico', 'paciente']);
+
+                Log::info('Usuario creado por admin', [ 
+                    'admin_id' => Auth::id(),
+                    'nuevo_usuario_id' => $usuario->id,
+                    'rol' => $usuario->rol,
+                ]);
+
+                return $usuario;
+            });
+
+        } catch (\Exception $e) {
+            try {
+                $this->fileUploadService->eliminarFoto($rutaFoto);
+            } catch (\Exception $eLimpieza) {
+                Log::error('Fallo limpiando foto tras error de creación de usuario: ' . $eLimpieza->getMessage(), [
+                    'ruta' => $rutaFoto
                 ]);
             }
 
-            if ($usuario->esPaciente()) { 
-                Paciente::create([
-                    'id_usuario' => $usuario->id,
-                    'numero_tarjeta' => $datos['numero_tarjeta'],
-                    'compania' => $datos['compania'],
-                ]);
-            }
-
-            $usuario->load(['medico', 'paciente']);
-
-            Log::info('Usuario creado por admin', [ 
-                'admin_id' => auth()->id() ?? null,
-                'nuevo_usuario_id' => $usuario->id,
-                'rol' => $usuario->rol,
+            Log::error('Error al crear usuario (admin): ' . $e->getMessage(), [
+                'email' => $datos['email'] ?? 'unknown'
             ]);
-
-            return $usuario;
-        });
+            throw $e;
+        }
     }
 
     /**
@@ -181,7 +196,7 @@ class UserService
 
             // Si la contraseña viene, la encriptamos
             if (!empty($datos['password'])) {
-                $datos['password'] = bcrypt($datos['password']);
+                $datos['password'] = Hash::make($datos['password']);
             } else {
                 unset($datos['password']);
             }
@@ -248,20 +263,29 @@ class UserService
         return $usuario;
     }
 
+    
     /**
      * Obtener estadísticas de usuarios
      * @return array retorna un array con las estadísticas de usuarios
      */
     public function obtenerEstadisticas(): array
     {
+        $stats = User::selectRaw("
+            COUNT(*) as total,
+            SUM(activo = 1) as activos,
+            SUM(activo = 0) as inactivos,
+            SUM(rol = 'admin') as admins,
+            SUM(rol = 'medico') as medicos,
+            SUM(rol = 'paciente') as pacientes
+        ")->first();
+
         return [
-            // count() nos devuelve el total de usuarios, los activos, inactivos, admins, medicos y pacientes
-            'total' => User::count(), 
-            'activos' => User::activo()->count(),
-            'inactivos' => User::inactivo()->count(),
-            'admins' => User::admin()->count(),
-            'medicos' => User::medico()->count(),
-            'pacientes' => User::paciente()->count(),
+            'total'      => (int) $stats->total,
+            'activos'    => (int) $stats->activos,
+            'inactivos'  => (int) $stats->inactivos,
+            'admins'     => (int) $stats->admins,
+            'medicos'    => (int) $stats->medicos,
+            'pacientes'  => (int) $stats->pacientes,
         ];
     }
 }

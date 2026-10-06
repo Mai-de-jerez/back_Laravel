@@ -6,13 +6,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use App\Models\User;
 use App\Models\Paciente;
 use App\Enums\RolUsuario;
 use App\Exceptions\Auth\InvalidCredentialsException;
 use App\Exceptions\Auth\InvalidTokenException;
 use App\Exceptions\Auth\InactiveUserException;
-use Illuminate\Support\Facades\Password;
+
 
 
 class AuthService
@@ -53,14 +57,21 @@ class AuthService
             });
 
         } catch (\Exception $e) {
-            $this->fileUploadService->eliminarFoto($rutaFoto);
+            try {
+                $this->fileUploadService->eliminarFoto($rutaFoto);
+            } catch (\Exception $eLimpieza) {
+                Log::error('Fallo limpiando foto tras error de registro: ' . $eLimpieza->getMessage(), [
+                    'ruta' => $rutaFoto
+                ]);
+            }
+
             Log::error('Error al registrar usuario: ' . $e->getMessage(), [
                 'email' => $datos['email'] ?? 'unknown'
             ]);
             throw $e;
         }
 
-        $usuario->load(['medico', 'paciente']);
+        $usuario->load(['paciente']);
         $token = $usuario->createToken('api-token')->plainTextToken;
 
         return [
@@ -71,15 +82,33 @@ class AuthService
 
     public function login(array $datos): array
     {
+        $throttleKey = Str::lower($datos['email']) . '|' . request()->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $segundos = RateLimiter::availableIn($throttleKey);
+            throw new TooManyRequestsHttpException(
+                $segundos, 
+                "Demasiados intentos de acceso. Inténtalo de nuevo en {$segundos} segundos."
+            );
+        }
+
         $usuario = User::porEmail($datos['email'])->first();
 
         if (!$usuario || !Hash::check($datos['password'], $usuario->password)) {
+            RateLimiter::hit($throttleKey, 60);
             throw new InvalidCredentialsException();
         }
 
         if (!$usuario->estaActivo()) {
             throw new InactiveUserException('Tu cuenta está desactivada. Contacta al administrador.');
         }
+
+        // Si el login es exitoso, limpiamos los intentos fallidos
+        RateLimiter::clear($throttleKey);
+
+        // Destruimos cualquier token anterior del usuario antes de crear el nuevo 
+        // (no queremos un cementerio de tokens)
+        $usuario->tokens()->delete();
 
         $usuario->load(['medico', 'paciente']);
         $token = $usuario->createToken('api-token')->plainTextToken;
@@ -94,7 +123,7 @@ class AuthService
     {
         $usuario = Auth::user();
 
-        if ($usuario && $usuario->currentAccessToken()) {
+        if ($usuario && method_exists($usuario, 'currentAccessToken') && $usuario->currentAccessToken()) {
             $usuario->currentAccessToken()->delete();
             Log::info('Usuario cerró sesión', ['user_id' => $usuario->id]);
         }

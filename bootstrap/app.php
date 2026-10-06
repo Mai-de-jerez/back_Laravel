@@ -70,6 +70,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (\InvalidArgumentException $e, Request $request) {
             return response()->json(['mensaje' => $e->getMessage()], 422);
-        });        
+        });   
+        
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException $e, Request $request) {
+            return response()->json(['mensaje' => $e->getMessage()], 429);
+        });
 
     })->create();

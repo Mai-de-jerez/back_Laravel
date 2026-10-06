@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
+use App\Services\FileUploadService;
 
 class UserProfileResource extends JsonResource
 {
@@ -20,7 +20,8 @@ class UserProfileResource extends JsonResource
             'email' => $this->email,
             'telefono' => $this->telefono,
             // URL completa para Angular
-            'foto_url' => $this->foto ? Storage::disk('public')->url($this->foto) : null,
+            //'foto_url' => $this->foto ? Storage::disk('public')->url($this->foto) : null,
+            'foto_url' => app(FileUploadService::class)->obtenerUrl($this->foto),
             'rol' => $this->rol,
             'activo' => (bool) $this->activo,
             
