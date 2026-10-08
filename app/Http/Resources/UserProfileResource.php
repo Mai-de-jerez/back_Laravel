@@ -19,8 +19,6 @@ class UserProfileResource extends JsonResource
             'apellidos' => $this->apellidos,
             'email' => $this->email,
             'telefono' => $this->telefono,
-            // URL completa para Angular
-            //'foto_url' => $this->foto ? Storage::disk('public')->url($this->foto) : null,
             'foto_url' => app(FileUploadService::class)->obtenerUrl($this->foto),
             'rol' => $this->rol,
             'activo' => (bool) $this->activo,
@@ -29,7 +27,8 @@ class UserProfileResource extends JsonResource
                 return [
                     'id' => $this->medico->id,
                     'numero_colegiado' => $this->medico->numero_colegiado,
-                    'especialidad' => $this->medico->especialidad,
+                    'especialidad' => $this->medico->especialidad,                 
+                    'centro' => $this->medico->centro
                 ];
             }),
 

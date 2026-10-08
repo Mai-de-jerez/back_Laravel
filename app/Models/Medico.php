@@ -16,6 +16,7 @@ class Medico extends Model
     protected $fillable = [
         'id_usuario',
         'id_especialidad',
+        'id_centro',
         'numero_colegiado',
         'descripcion'
     ];
@@ -39,6 +40,14 @@ class Medico extends Model
     public function especialidad(): BelongsTo
     {
         return $this->belongsTo(Especialidad::class, 'id_especialidad');
+    }
+
+    /**
+     * Un médico atiende en un centro
+     */
+    public function centro(): BelongsTo
+    {
+        return $this->belongsTo(Centro::class, 'id_centro');
     }
 
     /**

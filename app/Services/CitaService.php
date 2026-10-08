@@ -38,6 +38,24 @@ class CitaService
             $query->where('id_paciente', $filtros['id_paciente']);
         }
 
+        if (!empty($filtros['nombre_paciente'])) {
+            $busqueda = $filtros['nombre_paciente'] . '%';
+            $query->whereHas('paciente.usuario', function ($q) use ($busqueda) {
+                $q->where('nombre', 'LIKE', $busqueda)
+                  ->orWhere('apellidos', 'LIKE', $busqueda)
+                  ->orWhere('apellidos', 'LIKE', '% ' . $busqueda);
+            });
+        }
+
+        if (!empty($filtros['nombre_medico'])) {
+            $busqueda = $filtros['nombre_medico'] . '%';
+            $query->whereHas('medico.usuario', function ($q) use ($busqueda) {
+                $q->where('nombre', 'LIKE', $busqueda)
+                  ->orWhere('apellidos', 'LIKE', $busqueda)
+                  ->orWhere('apellidos', 'LIKE', '% ' . $busqueda);
+            });
+        }
+
         if (!empty($filtros['estado'])) {
             $query->where('estado', $filtros['estado']);
         }
@@ -101,13 +119,24 @@ class CitaService
 
             // 3. Trocear el horario en bloques de 15 min y descartar los ocupados
             $huecos = [];
-
+            
             foreach ($horarios as $h) {
                 $inicio = Carbon::parse($h->hora_inicio);
                 $fin = Carbon::parse($h->hora_fin);
 
                 while ($inicio->copy()->addMinutes(15)->lte($fin)) {
                     $horaF = $inicio->format('H:i');
+
+                    // Comprobamos si la hora ya pasó (solo aplica si es HOY)
+                    if ($fecha->isToday()) {
+                        $horaCompleta = Carbon::parse($fecha->toDateString() . ' ' . $horaF);
+                        if ($horaCompleta->lte(Carbon::now())) {
+                            $inicio->addMinutes(15);
+                            continue; // saltar esta hora, ya pasó
+                        }
+                    }
+
+                    // comprobamos si hay cita en ese hueco
                     if (!in_array($horaF, $citasOcupadas)) {
                         $huecos[] = $horaF;
                     }

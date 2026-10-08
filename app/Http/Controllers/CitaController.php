@@ -23,7 +23,7 @@ class CitaController extends Controller
      */
     public function listarCitas(Request $request): JsonResponse
     {
-        $filtros = $request->only(['id', 'id_medico', 'id_paciente', 'estado', 'fecha']);
+        $filtros = $request->only(['id', 'nombre_medico', 'nombre_paciente', 'estado', 'fecha']);
 
         $resultado = $this->citaService->obtenerTodasLasCitas($filtros);
 

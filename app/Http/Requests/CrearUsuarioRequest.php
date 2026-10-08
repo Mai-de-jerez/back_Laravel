@@ -37,6 +37,7 @@ class CrearUsuarioRequest extends FormRequest
         if ($this->input('rol') === 'medico') {
             $rules['numero_colegiado'] = 'required|string|unique:medicos,numero_colegiado';
             $rules['id_especialidad'] = 'required|exists:especialidades,id';
+            $rules['id_centro'] = 'required|exists:centros,id'; 
         }
 
         if ($this->input('rol') === 'paciente') {
@@ -79,6 +80,8 @@ class CrearUsuarioRequest extends FormRequest
             'numero_colegiado.unique' => 'Este número de colegiado ya está registrado',
             'id_especialidad.required' => 'La especialidad es obligatoria',
             'id_especialidad.exists' => 'La especialidad seleccionada no existe',
+            'id_centro.required' => 'El centro es obligatorio',             
+            'id_centro.exists' => 'El centro seleccionado no existe', 
 
             // Paciente
             'numero_tarjeta.required' => 'El número de tarjeta es obligatorio',

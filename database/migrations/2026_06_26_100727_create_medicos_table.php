@@ -16,6 +16,9 @@ return new class extends Migration
             $table->foreignId('id_especialidad')
                   ->constrained('especialidades')
                   ->onDelete('restrict');
+            $table->foreignId('id_centro')
+                  ->constrained('centros')
+                  ->onDelete('restrict');
             $table->string('numero_colegiado', 50)->unique();
             $table->text('descripcion')->nullable();
             $table->timestamp('fecha_creacion')->nullable();

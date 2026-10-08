@@ -6,6 +6,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\EspecialidadController;
 use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\CitaController;
+use App\Http\Controllers\CentroController;
 
 // Rutas públicas
 Route::post('/registro', [AuthController::class, 'registro']);
@@ -23,6 +24,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/medicos/{medico}/citas', [CitaController::class, 'citasPorMedico']);
     Route::get('/mis-horarios', [HorarioController::class, 'misHorarios']);
     Route::get('/mis-citas', [CitaController::class, 'misCitas']); 
+    Route::post('/citas', [CitaController::class, 'crearMiCita']);
+    Route::get('/centros', [CentroController::class, 'listarCentros']);
 
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         // Usuarios

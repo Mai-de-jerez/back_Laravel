@@ -10,7 +10,6 @@ use App\Http\Requests\ActualizarHorarioRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class HorarioController extends Controller
 {

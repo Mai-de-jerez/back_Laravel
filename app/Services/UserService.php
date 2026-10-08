@@ -145,6 +145,7 @@ class UserService
                         'id_usuario' => $usuario->id,
                         'numero_colegiado' => $datos['numero_colegiado'],
                         'id_especialidad' => $datos['id_especialidad'],
+                        'id_centro' => $datos['id_centro'],
                     ]);
                 }
 
@@ -227,11 +228,12 @@ class UserService
 
             // Si el usuario es médico, actualizar sus datos de médico
             if ($user->esMedico()) {
-                if (isset($datos['numero_colegiado'])) {
+                if (isset($datos['numero_colegiado']) || isset($datos['id_centro']) || isset($datos['id_especialidad'])) {
                     if ($user->medico) {
                         $user->medico->update([
-                            'numero_colegiado' => $datos['numero_colegiado'],
+                            'numero_colegiado' => $datos['numero_colegiado'] ?? $user->medico->numero_colegiado,
                             'id_especialidad' => $datos['id_especialidad'] ?? $user->medico->id_especialidad,
+                            'id_centro' => $datos['id_centro'] ?? $user->medico->id_centro,
                         ]);
                     } else {
                         Log::warning('Usuario médico sin relación médico', ['user_id' => $user->id]);
@@ -242,7 +244,7 @@ class UserService
 
             $user->load(['medico', 'paciente']);
 
-            Log::info('Usuario actualizado por admin', [ // <-- AÑADIR AQUÍ
+            Log::info('Usuario actualizado por admin', [
                 'usuario_actualizado_id' => $user->id,
                 'rol' => $user->rol,
             ]);

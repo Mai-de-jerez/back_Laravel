@@ -55,9 +55,11 @@ class ActualizarUsuarioRequest extends FormRequest
         if ($user->esMedico()) {
             $rules['numero_colegiado'] = 'sometimes|required|string|unique:medicos,numero_colegiado,' . $userId . ',id_usuario';
             $rules['id_especialidad'] = 'sometimes|required|exists:especialidades,id';
+            $rules['id_centro'] = 'sometimes|required|exists:centros,id';
         } else {
             $rules['numero_colegiado'] = 'prohibited';
             $rules['id_especialidad'] = 'prohibited';
+            $rules['id_centro'] = 'prohibited';
         }
 
         // solo validamos campos de paciente si el usuario es paciente
@@ -107,6 +109,9 @@ class ActualizarUsuarioRequest extends FormRequest
             'id_especialidad.required' => 'La especialidad es obligatoria',
             'id_especialidad.exists' => 'La especialidad seleccionada no existe',
             'id_especialidad.prohibited' => 'El usuario no es médico así que no puedes actualizar la especialidad',
+            'id_centro.required' => 'El centro es obligatorio',                   
+            'id_centro.exists' => 'El centro seleccionado no existe',              
+            'id_centro.prohibited' => 'El usuario no es médico así que no puedes actualizar el centro',
 
             // Paciente
             'numero_tarjeta.required' => 'El número de tarjeta es obligatorio',
