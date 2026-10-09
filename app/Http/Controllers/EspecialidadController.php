@@ -2,11 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Services\EspecialidadService;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\EspecialidadResource;
-use App\Models\Especialidad;
 
 class EspecialidadController extends Controller
 {
@@ -26,13 +24,4 @@ class EspecialidadController extends Controller
         ], 200);
     }
 
-    /**
-     * Listar medicos por especialidad
-     */
-    public function listarMedicosPorEspecialidad(Especialidad $especialidad): JsonResponse
-    {
-        $resultado = $this->especialidadService->listarMedicosPorEspecialidad($especialidad);
-
-        return response()->json($resultado, 200);
-    }
 }

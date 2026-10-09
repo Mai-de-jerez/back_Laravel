@@ -16,6 +16,7 @@ class Cita extends Model
     protected $fillable = [
         'id_paciente',
         'id_medico',
+        'id_centro',
         'fecha',
         'hora',
         'estado',
@@ -52,5 +53,13 @@ class Cita extends Model
     public function medico(): BelongsTo
     {
         return $this->belongsTo(Medico::class, 'id_medico');
+    }
+
+    /**
+     * La cita pertenece a un centro
+     */
+    public function centro(): BelongsTo
+    {
+        return $this->belongsTo(Centro::class, 'id_centro');
     }
 }

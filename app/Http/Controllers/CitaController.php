@@ -41,12 +41,22 @@ class CitaController extends Controller
      */
     public function citasPorMedico(Medico $medico): JsonResponse
     {
+        $medico->load(['usuario', 'especialidad', 'centro']);  
+
         $resultado = $this->citaService->obtenerProximoDiaConHuecos($medico->id);
 
         return response()->json([
             'medico' => [
                 'id' => $medico->id,
-                'nombre_completo' => $medico->usuario->nombre_completo ?? 'Médico',
+                'nombre_completo' => $medico->usuario?->nombre_completo ?? 'Médico',
+                'especialidad' => [
+                    'id' => $medico->especialidad?->id,
+                    'nombre' => $medico->especialidad?->nombre,
+                ],
+                'centro' => [
+                    'id' => $medico->centro?->id,
+                    'nombre' => $medico->centro?->nombre,
+                ],
             ],
             'fecha' => $resultado['fecha'],
             'huecos_disponibles' => $resultado['huecos'],

@@ -7,6 +7,7 @@ use App\Http\Controllers\EspecialidadController;
 use App\Http\Controllers\HorarioController;
 use App\Http\Controllers\CitaController;
 use App\Http\Controllers\CentroController;
+use App\Http\Controllers\MedicoController; 
 
 // Rutas públicas
 Route::post('/registro', [AuthController::class, 'registro']);
@@ -16,16 +17,26 @@ Route::post('/restablecer-password', [AuthController::class, 'restablecerPasswor
 
 // Rutas protegidas
 Route::middleware('auth:sanctum')->group(function () {
+
+    // Sesión y perfil
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/mi-perfil', [UserController::class, 'perfil']);
     Route::post('/actualizar-perfil', [UserController::class, 'actualizar']);
+
+    // --- FLUJO DE COGER CITA (Paso a Paso con Query Params) ---
+    
     Route::get('/especialidades', [EspecialidadController::class, 'listarEspecialidades']);
-    Route::get('/especialidades/{especialidad}/medicos', [EspecialidadController::class, 'listarMedicosPorEspecialidad']);
-    Route::get('/medicos/{medico}/citas', [CitaController::class, 'citasPorMedico']);
-    Route::get('/mis-horarios', [HorarioController::class, 'misHorarios']);
-    Route::get('/mis-citas', [CitaController::class, 'misCitas']); 
-    Route::post('/citas', [CitaController::class, 'crearMiCita']);
     Route::get('/centros', [CentroController::class, 'listarCentros']);
+    Route::get('/medicos', [MedicoController::class, 'listarMedicos']);
+    Route::get('/medicos/{medico}/citas', [CitaController::class, 'citasPorMedico']);
+
+    // Horarios y citas del usuario autenticado
+    Route::get('/mis-horarios', [HorarioController::class, 'misHorarios']);
+    // Pacientes o médicos pueden ver sus citas
+    Route::get('/mis-citas', [CitaController::class, 'misCitas']); 
+    // Solo pacientes pueden crear citas para sí mismos
+    Route::post('/citas', [CitaController::class, 'crearMiCita']);
+    
 
     Route::middleware(['admin'])->prefix('admin')->group(function () {
         // Usuarios

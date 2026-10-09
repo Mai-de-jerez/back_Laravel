@@ -9,15 +9,11 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class CentroService
 {
     /**
-     * Listar todos los centros disponibles.
-     *
-     * @return Collection
+     * Listar todos los centros con todos sus campos.
      */
     public function listarCentros(): Collection
     {
-        return Centro::select('id', 'nombre')
-            ->orderBy('nombre')
-            ->get();
+        return Centro::orderBy('nombre')->get();
     }
 
     /**

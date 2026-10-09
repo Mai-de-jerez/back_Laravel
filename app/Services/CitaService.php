@@ -24,7 +24,7 @@ class CitaService
      */
     public function obtenerTodasLasCitas(array $filtros = []): array
     {
-        $query = Cita::with(['paciente.usuario', 'medico.usuario']);
+        $query = Cita::with(['paciente.usuario', 'medico.usuario', 'centro']);
 
         if (!empty($filtros['id'])) {
             $query->where('id', $filtros['id']);
@@ -220,6 +220,7 @@ class CitaService
             $cita = Cita::create([
                 'id_paciente' => $paciente->id,
                 'id_medico'   => $medico->id,
+                'id_centro'   => $medico->id_centro,
                 'fecha'       => $fecha->toDateString(),
                 'hora'        => $horaInicio,
                 'estado'      => EstadoCita::ACTIVA,
@@ -231,10 +232,12 @@ class CitaService
                 'cita_id'     => $cita->id,
                 'id_medico'   => $medico->id,
                 'id_paciente' => $paciente->id,
+                'id_centro'   => $medico->id_centro,
                 'fecha'       => $fecha->toDateString(),
                 'hora'        => $horaInicio,
             ]);
 
+            $cita->load(['paciente.usuario', 'medico.usuario', 'centro']);
             return $cita;
         });
     } 
@@ -245,9 +248,13 @@ class CitaService
     public function actualizarCita(Cita $cita, array $datos): Cita
     {
         if (isset($datos['id_medico']) && $datos['id_medico'] != $cita->id_medico) {
-            if (!Medico::where('id', $datos['id_medico'])->exists()) {
+            $nuevoMedico = Medico::find($datos['id_medico']);
+            
+            if (!$nuevoMedico) {
                 throw new NotFoundHttpException('Médico no encontrado');
             }
+            
+            $datos['id_centro'] = $nuevoMedico->id_centro;   
         }
 
         if (isset($datos['id_paciente']) && $datos['id_paciente'] != $cita->id_paciente) {
@@ -287,6 +294,7 @@ class CitaService
                 'datos_actualizados' => $datos,
             ]);
 
+            $cita->load(['paciente.usuario', 'medico.usuario', 'centro']);
             return $cita;
         });
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use App\Services\CentroService;
+use App\Http\Resources\CentroResource;
 
 
 class CentroController extends Controller 
@@ -18,7 +19,7 @@ class CentroController extends Controller
         $centros = $this->centroService->listarCentros();
 
         return response()->json([
-            'centros' => $centros,
+            'centros' => CentroResource::collection($centros),
         ], 200);
     }
 }

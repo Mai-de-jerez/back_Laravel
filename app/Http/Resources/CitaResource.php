@@ -25,6 +25,10 @@ class CitaResource extends JsonResource
                 'id' => $this->medico->id,
                 'nombre_completo' => $this->medico->usuario->nombre_completo ?? '',
             ],
+            'centro'      => [
+                'id' => $this->id_centro,
+                'nombre' => $this->centro?->nombre ?? '',
+            ],
             'fecha'       => $this->fecha->format('Y-m-d'),
             'hora'        => $this->hora->format('H:i'),
             'estado'      => $this->estado instanceof \BackedEnum ? $this->estado->value : $this->estado,
