@@ -23,14 +23,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mi-perfil', [UserController::class, 'perfil']);
     Route::post('/actualizar-perfil', [UserController::class, 'actualizar']);
 
-    // --- FLUJO DE COGER CITA (Paso a Paso con Query Params) ---
+    // --- FLUJO DE COGER CITA ( con Query Params) ---
     
     Route::get('/especialidades', [EspecialidadController::class, 'listarEspecialidades']);
     Route::get('/centros', [CentroController::class, 'listarCentros']);
     Route::get('/medicos', [MedicoController::class, 'listarMedicos']);
     Route::get('/medicos/{medico}/citas', [CitaController::class, 'citasPorMedico']);
 
-    // Horarios y citas del usuario autenticado
+    // Horarios del médico
     Route::get('/mis-horarios', [HorarioController::class, 'misHorarios']);
     // Pacientes o médicos pueden ver sus citas
     Route::get('/mis-citas', [CitaController::class, 'misCitas']); 

@@ -7,6 +7,7 @@ use App\Models\Cita;
 use App\Models\Medico;
 use App\Http\Requests\CrearCitaRequest;
 use App\Http\Requests\ActualizarCitaRequest;
+use App\Http\Requests\CrearMiCitaRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Resources\CitaResource;
@@ -90,6 +91,37 @@ class CitaController extends Controller
 
         return response()->json([
             'mensaje' => 'Cita creada correctamente',
+            'cita' => new CitaResource($cita),
+        ], 201);
+    }
+
+    /**
+     * Crear una cita para el paciente autenticado
+     */
+    public function crearMiCita(CrearMiCitaRequest $request): JsonResponse   
+    {
+        $usuario = $request->user();
+
+        if (!$usuario->paciente) {
+            return response()->json([
+                'mensaje' => 'Solo los pacientes pueden reservar citas',
+            ], 403);
+        }
+
+        $datos = $request->validated();
+        $datos['id_paciente'] = $usuario->paciente->id;
+
+        $cita = $this->citaService->crearCita($datos);
+
+        Log::info('Cita creada por paciente', [
+            'paciente_id' => $usuario->paciente->id,
+            'cita_id' => $cita->id,
+            'id_medico' => $cita->id_medico,
+            'id_centro' => $cita->id_centro,
+        ]);
+
+        return response()->json([
+            'mensaje' => 'Cita reservada correctamente',
             'cita' => new CitaResource($cita),
         ], 201);
     }
