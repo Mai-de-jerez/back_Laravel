@@ -36,6 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mis-citas', [CitaController::class, 'misCitas']); 
     // Solo pacientes pueden crear citas para sí mismos
     Route::post('/citas', [CitaController::class, 'crearMiCita']);
+    // Ver detalle de una cita específica
+    Route::get('/citas/{cita}', [CitaController::class, 'verCita']);
     
 
     Route::middleware(['admin'])->prefix('admin')->group(function () {
@@ -55,8 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Citas 
         Route::get('/citas', [CitaController::class, 'listarCitas']);
-        Route::post('/citas', [CitaController::class, 'crearCita']);
-        Route::get('/citas/{cita}', [CitaController::class, 'mostrarCita']);                       
+        Route::post('/citas', [CitaController::class, 'crearCita']);  
+        Route::get('/citas/{cita}', [CitaController::class, 'verCita']);                     
         Route::put('/citas/{cita}', [CitaController::class, 'actualizarCita']);                                    
     });
 });

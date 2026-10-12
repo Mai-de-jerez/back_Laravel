@@ -38,13 +38,13 @@ class CitaController extends Controller
     }
 
     /**
-     * Ver huecos disponibles de un médico en una fecha concreta
+     * Ver huecos disponibles del médico para los próximos días
      */
     public function citasPorMedico(Medico $medico): JsonResponse
     {
-        $medico->load(['usuario', 'especialidad', 'centro']);  
+        $medico->load(['usuario', 'especialidad', 'centro']);
 
-        $resultado = $this->citaService->obtenerProximoDiaConHuecos($medico->id);
+        $dias = $this->citaService->obtenerHuecosDisponibles($medico->id, 4);
 
         return response()->json([
             'medico' => [
@@ -59,19 +59,21 @@ class CitaController extends Controller
                     'nombre' => $medico->centro?->nombre,
                 ],
             ],
-            'fecha' => $resultado['fecha'],
-            'huecos_disponibles' => $resultado['huecos'],
+            'dias' => $dias,
         ], 200);
     }
     
 
     /**
-     * Admin: Mostrar detalle de una cita
+     * Mostrar detalle de una cita
      */
-    public function mostrarCita(Cita $cita): JsonResponse
+
+    public function verCita(Cita $cita, Request $request): JsonResponse
     {
+        $citaCompleta = $this->citaService->obtenerCita($cita->id, $request->user());
+
         return response()->json([
-            'cita' => new CitaResource($cita)
+            'cita' => new CitaResource($citaCompleta),
         ], 200);
     }
 

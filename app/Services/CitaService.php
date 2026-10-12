@@ -75,30 +75,33 @@ class CitaService
         ];
     }
 
-
     /**
-     * Busca el día más próximo (desde hoy) en el que el médico tenga
-     * al menos un hueco libre de 15 min, teniendo en cuenta su horario
-     * semanal y las citas activas ya reservadas.
+     * Obtiene los próximos N días con huecos disponibles de un médico.
+     * Por defecto devuelve los 4 próximos días con huecos.
      *
      * @param int $idMedico
-     * @param int $diasMaximoBusqueda Cuántos días hacia adelante busca antes de rendirse
-     * @return array ['fecha' => string|null, 'huecos' => array]
+     * @param int $numDias Cuántos días con huecos devolver
+     * @param int $diasMaximoBusqueda Hasta cuándo buscar hacia adelante
+     * @return array Lista de ['fecha' => 'Y-m-d', 'huecos' => [...]]
      */
-    public function obtenerProximoDiaConHuecos(int $idMedico, int $diasMaximoBusqueda = 60): array
-    {
-        // Traemos TODOS los horarios del médico una sola vez (antes: 1 query por día)
+    public function obtenerHuecosDisponibles(
+        int $idMedico,
+        int $numDias = 4,
+        int $diasMaximoBusqueda = 60
+    ): array {
+        // Traemos TODOS los horarios del médico una sola vez
         $horariosDelMedico = Horario::where('id_medico', $idMedico)->get();
 
         if ($horariosDelMedico->isEmpty()) {
-            return ['fecha' => null, 'huecos' => []];
+            return [];
         }
 
+        $diasEncontrados = [];
         $fecha = Carbon::today();
 
         for ($i = 0; $i <= $diasMaximoBusqueda; $i++) {
 
-            // 1. Filtrar en PHP (sin query) los horarios que aplican a este día de la semana
+            // 1. Filtrar en PHP los horarios que aplican a este día
             $diaSemanaHoy = DiaSemana::fromFecha($fecha)->value;
             $horarios = $horariosDelMedico->filter(
                 fn($h) => $h->dia_semana->value === $diaSemanaHoy
@@ -109,7 +112,7 @@ class CitaService
                 continue;
             }
 
-            // 2. Sacar las citas ya ocupadas ese día (esto sí debe ser por día, cambia cada vez)
+            // 2. Citas ocupadas ese día
             $citasOcupadas = Cita::where('id_medico', $idMedico)
                 ->where('fecha', $fecha->toDateString())
                 ->where('estado', EstadoCita::ACTIVA)
@@ -117,9 +120,9 @@ class CitaService
                 ->map(fn($h) => Carbon::parse($h)->format('H:i'))
                 ->toArray();
 
-            // 3. Trocear el horario en bloques de 15 min y descartar los ocupados
+            // 3. Trocear en bloques de 15 min
             $huecos = [];
-            
+
             foreach ($horarios as $h) {
                 $inicio = Carbon::parse($h->hora_inicio);
                 $fin = Carbon::parse($h->hora_fin);
@@ -127,16 +130,15 @@ class CitaService
                 while ($inicio->copy()->addMinutes(15)->lte($fin)) {
                     $horaF = $inicio->format('H:i');
 
-                    // Comprobamos si la hora ya pasó (solo aplica si es HOY)
+                    // Si es HOY, descartar horas pasadas
                     if ($fecha->isToday()) {
                         $horaCompleta = Carbon::parse($fecha->toDateString() . ' ' . $horaF);
                         if ($horaCompleta->lte(Carbon::now())) {
                             $inicio->addMinutes(15);
-                            continue; // saltar esta hora, ya pasó
+                            continue;
                         }
                     }
 
-                    // comprobamos si hay cita en ese hueco
                     if (!in_array($horaF, $citasOcupadas)) {
                         $huecos[] = $horaF;
                     }
@@ -146,19 +148,52 @@ class CitaService
 
             sort($huecos);
 
-            // 4. Si este día tiene huecos, ya está, devolvemos
+            // 4. Si este día tiene huecos, lo guardamos
             if (!empty($huecos)) {
-                return [
+                $diasEncontrados[] = [
                     'fecha' => $fecha->toDateString(),
                     'huecos' => $huecos,
                 ];
+
+                // Si ya tenemos los N días, paramos
+                if (count($diasEncontrados) >= $numDias) {
+                    break;
+                }
             }
 
-            // 5. Si no, probamos el día siguiente
+            // 5. Probamos el día siguiente
             $fecha->addDay();
         }
 
-        return ['fecha' => null, 'huecos' => []];
+        return $diasEncontrados;
+    }
+
+    /**
+     * Obtener una cita si el usuario tiene permiso para verla.
+     * - Admin: siempre
+     * - Médico: si es SU cita
+     * - Paciente: si es SU cita
+     * Si no tiene permiso → 404.
+     */
+    public function obtenerCita(int $id, User $usuario): Cita
+    {
+        $cita = Cita::with([
+            'paciente.usuario',
+            'medico.usuario',
+            'medico.especialidad',
+            'centro',
+        ])->find($id);
+
+        if (!$cita) {
+            throw new NotFoundHttpException('Cita no encontrada');
+        }
+
+        // Verificar permisos
+        if ($usuario->esAdmin()) return $cita;
+        if ($usuario->esMedico() && $cita->id_medico === $usuario->medico?->id) return $cita;
+        if ($usuario->esPaciente() && $cita->id_paciente === $usuario->paciente?->id) return $cita;
+
+        throw new NotFoundHttpException('Cita no encontrada');
     }
 
     /**
